@@ -1,0 +1,19 @@
+# 줄바꿈을 저장소에서는 LF로 통일한다.
+# 체크아웃 시 각 OS에 맞게 변환되므로 Windows에서도 그대로 작업하면 된다.
+* text=auto
+
+*.java   text
+*.md     text
+*.html   text
+*.css    text
+*.js     text
+*.yml    text
+*.xml    text
+
+*.sh     text eol=lf
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+
+*.png    binary
+*.jpg    binary
+*.pdf    binary

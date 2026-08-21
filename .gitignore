@@ -1,0 +1,34 @@
+### 로컬 작업 문서 ###
+docs/설계도.html
+docs/설계도.md
+docs/학습기록.md
+docs/개발기록.md
+
+### Build ###
+target/
+build/
+*.jar
+*.war
+
+### IntelliJ ###
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+### Eclipse / VS Code ###
+.classpath
+.project
+.settings/
+.vscode/
+bin/
+
+### OS ###
+.DS_Store
+Thumbs.db
+desktop.ini
+
+### Logs ###
+*.log
+logs/
