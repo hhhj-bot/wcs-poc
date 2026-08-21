@@ -4,20 +4,21 @@ docs/설계도.md
 docs/학습기록.md
 docs/개발기록.md
 
-### Build ###
-target/
+### Gradle ###
+.gradle/
 build/
-*.jar
-*.war
+!gradle/wrapper/gradle-wrapper.jar
+
+### javac 임시 출력 ###
+out/
 
 ### IntelliJ ###
 .idea/
 *.iml
 *.iws
 *.ipr
-out/
 
-### Eclipse / VS Code ###
+### Eclipse / VS Code / Cursor ###
 .classpath
 .project
 .settings/

@@ -1,0 +1,35 @@
+plugins {
+    id 'java'
+}
+
+group = 'io.github.hhhjbot'
+version = '0.1.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+
+    // 어떤 테스트가 통과했는지 콘솔에 표시한다.
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        showStandardStreams = true
+    }
+}
+
+// Spring Boot 의존성은 3단계(설비 시뮬레이터)에서 추가한다.
+// 현재 도메인 계층은 프레임워크 없이 동작하므로 표준 라이브러리만 사용한다.

@@ -3,7 +3,8 @@
 자동창고(AS/RS)에서 반출된 물품이 컨베이어를 거쳐 소터로 분류되기까지의 제어 흐름을 구현한 PoC.
 상위 시스템과 설비 사이에서 WCS가 담당하는 역할을 코드로 확인하는 것이 목적이다.
 
-Java 17 · Spring Boot 3 · Spring Data JPA · H2
+Java 17 · Gradle · Spring Boot 3 · Spring Data JPA · H2
+(Spring 의존성은 3단계에서 추가한다. 현재 도메인 계층은 표준 라이브러리만 사용한다.)
 
 ---
 
@@ -148,7 +149,7 @@ stateDiagram-v2
 | 단계 | 내용 | 상태 |
 |---|---|---|
 | 1 | 범위 정의 · 설계 문서화 | 완료 |
-| 2 | 도메인 — 상태 전이 · 로케이션 주소 · 슈트 배정 | |
+| 2 | 도메인 — 상태 전이 · 로케이션 주소 · 슈트 배정 | 상태 전이 완료 |
 | 3 | 설비 시뮬레이터 — 크레인 핸드셰이크 | |
 | 4 | 작업 대기열 · 컷오프 우선순위 | |
 | 5 | P&D 인수인계 | |
@@ -160,9 +161,18 @@ stateDiagram-v2
 
 ## 실행
 
+Gradle Wrapper를 사용한다. Gradle을 별도로 설치할 필요는 없다.
+
 ```bash
-mvn test              # 도메인 테스트. 스프링 컨텍스트 없이 동작
-mvn spring-boot:run   # http://localhost:8080
+./gradlew test          # 도메인 테스트
+```
+
+빌드 도구 없이 규칙만 확인하려면:
+
+```bash
+javac -encoding UTF-8 -d out src/main/java/io/github/hhhjbot/wcs/domain/TaskStatus.java
+javac -encoding UTF-8 -cp out -d out tools/TaskStatusCheck.java
+java -cp out TaskStatusCheck
 ```
 
 상태 모니터는 정적 HTML과 폴링으로 구성한다.
