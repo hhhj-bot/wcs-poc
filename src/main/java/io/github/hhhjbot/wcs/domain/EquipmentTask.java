@@ -95,8 +95,14 @@ public class EquipmentTask {
     // 조회
     // ------------------------------------------------------------------
 
-    /** 이 작업이 설비를 점유하고 있는지. 점유 중이면 같은 설비에 다음 작업을 하달하지 않는다. */
-    public boolean occupiesEquipment() {
+    /**
+     * 이 작업이 설비에서 진행 중인지.
+     *
+     * <p>설비가 더 받을 수 있는지는 이 값으로 판단하지 않는다. 설비마다 동시 처리 수가
+     * 다르므로, 진행 중인 작업들을 세어 {@link Equipment#canAccept(int)}에 넘겨야 한다.
+     * 이 메서드는 그 계수의 대상인지만 알려준다.
+     */
+    public boolean isInFlight() {
         return status.isInFlight();
     }
 

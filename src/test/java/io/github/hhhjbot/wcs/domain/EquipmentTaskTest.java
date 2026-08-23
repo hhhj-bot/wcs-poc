@@ -163,36 +163,52 @@ class EquipmentTaskTest {
     }
 
     @Nested
-    @DisplayName("설비 점유 판정")
-    class EquipmentOccupancy {
+    @DisplayName("설비 진행 중 판정")
+    class InFlight {
 
         @Test
-        @DisplayName("하달 전에는 설비를 점유하지 않는다")
-        void notOccupyingBeforeDispatch() {
+        @DisplayName("하달 전에는 진행 중이 아니다")
+        void notInFlightBeforeDispatch() {
             var task = craneTask();
-            assertFalse(task.occupiesEquipment());
+            assertFalse(task.isInFlight());
 
             task.transitionTo(TaskStatus.QUEUED);
-            assertFalse(task.occupiesEquipment(), "대기 중일 뿐 설비를 잡고 있지 않다");
+            assertFalse(task.isInFlight(), "대기 중일 뿐 설비에 내려가지 않았다");
         }
 
         @Test
-        @DisplayName("하달 후 완료 전까지 설비를 점유한다")
-        void occupyingWhileInFlight() {
+        @DisplayName("하달 후 완료 전까지 진행 중이다")
+        void inFlightUntilCompleted() {
             var task = craneTask();
             task.transitionTo(TaskStatus.QUEUED);
 
             task.transitionTo(TaskStatus.SENT);
-            assertTrue(task.occupiesEquipment());
+            assertTrue(task.isInFlight());
 
             task.transitionTo(TaskStatus.ACKED);
-            assertTrue(task.occupiesEquipment());
+            assertTrue(task.isInFlight());
 
             task.transitionTo(TaskStatus.EXECUTING);
-            assertTrue(task.occupiesEquipment());
+            assertTrue(task.isInFlight());
 
             task.transitionTo(TaskStatus.COMPLETED);
-            assertFalse(task.occupiesEquipment(), "완료되면 설비가 풀린다");
+            assertFalse(task.isInFlight(), "완료되면 계수 대상에서 빠진다");
+        }
+
+        @Test
+        @DisplayName("진행 중 여부만으로 설비 가용을 판단하지 않는다")
+        void doesNotDecideEquipmentAvailability() {
+            var task = craneTask();
+            task.transitionTo(TaskStatus.QUEUED);
+            task.transitionTo(TaskStatus.SENT);
+
+            var crane = new Equipment("SC-A01", 1);
+            var conveyor = new Equipment("CV-01", 8);
+            int inFlight = task.isInFlight() ? 1 : 0;
+
+            // 같은 진행 중 1건이라도 설비에 따라 판단이 다르다
+            assertFalse(crane.canAccept(inFlight));
+            assertTrue(conveyor.canAccept(inFlight));
         }
     }
 
