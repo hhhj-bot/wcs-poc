@@ -21,6 +21,17 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// 소스 파일은 UTF-8이다. JDK 17은 Windows에서 기본 인코딩이 CP949라
+// 지정하지 않으면 javac가 UTF-8 소스를 CP949로 읽어 한글 문자열이 깨진다.
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// 테스트를 실행하는 JVM의 출력도 UTF-8로 맞춘다.
+tasks.withType(Test).configureEach {
+    jvmArgs '-Dfile.encoding=UTF-8'
+}
+
 tasks.named('test') {
     useJUnitPlatform()
 
