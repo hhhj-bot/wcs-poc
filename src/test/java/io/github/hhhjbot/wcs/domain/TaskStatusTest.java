@@ -9,8 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 작업 상태 전이 규칙 검증.
- *
- * <p>프레임워크 의존성이 없으므로 스프링 컨텍스트 없이 즉시 실행된다.
  */
 class TaskStatusTest {
 

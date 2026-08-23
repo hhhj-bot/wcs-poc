@@ -20,10 +20,9 @@ import java.util.Objects;
  * <h3>상태 변경</h3>
  * 상태는 {@link #transitionTo(TaskStatus)}로만 바꿀 수 있고, 그 안에서
  * {@link TaskStatus#canTransitionTo(TaskStatus)}로 규칙을 검사한다.
- * setter를 열어두면 단계를 건너뛴 변경이 가능해지고,
- * 그것은 곧 완료 신호를 받지 않은 작업이 완료로 기록되는 상황을 뜻한다.
+ * setter를 두지 않는 것은 단계를 건너뛴 변경을 막기 위한 것이다.
  *
- * <h3>이름에 대하여</h3>
+ * <h3>운반 대상의 이름</h3>
  * 운반 대상을 {@code loadId}로 부른다. 케이스·파렛트·토트 중 무엇이 오더라도
  * 이름을 바꾸지 않기 위한 것이다. (ADR-0008)
  */

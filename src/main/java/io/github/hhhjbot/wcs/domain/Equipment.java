@@ -22,17 +22,14 @@ package io.github.hhhjbot.wcs.domain;
  * 이후 어떤 작업도 받지 못한다. 작업 목록에서 세어내면 진실의 원천이 하나뿐이라
  * 어긋날 수가 없다.
  *
- * <p>그 대가로 이 클래스는 저장소도 작업 목록도 모른다. 판정 로직만 갖는 순수 값이라
- * 프레임워크 없이 테스트된다.
+ * <p>이 클래스는 저장소나 작업 목록을 참조하지 않는다.
  *
- * <p>record로 둔 이유는 설비 구성이 운영 중에 바뀌지 않기 때문이다.
- * 상태가 변하는 {@link EquipmentTask}와 대비된다.
+ * <p>설비 구성은 운영 중에 바뀌지 않으므로 record로 둔다.
+ * 상태가 변하는 {@link EquipmentTask}와 구분된다.
  */
 public record Equipment(String code, int capacity) {
 
-    /**
-     * 컴팩트 생성자. record는 필드 대입을 자동으로 하므로 검증만 적는다.
-     */
+    /** 값 검증. */
     public Equipment {
         if (code == null || code.isBlank()) {
             throw new IllegalArgumentException("설비 코드는 필수입니다");

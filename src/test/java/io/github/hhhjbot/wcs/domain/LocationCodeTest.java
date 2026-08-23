@@ -12,8 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 위치 코드의 해석 규칙 검증.
  *
- * <p>확인하려는 것은 두 가지다. 형식이 틀린 자리가 만들어지지 않는지,
- * 그리고 랙 주소만으로 담당 크레인이 정해지는지.
+ * <p>형식이 틀린 자리가 만들어지지 않는지, 랙 주소만으로 담당 크레인이 정해지는지를 확인한다.
  */
 class LocationCodeTest {
 

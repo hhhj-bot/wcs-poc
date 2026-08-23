@@ -12,8 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 설비의 동시 처리 판정 검증.
  *
- * <p>여기서 확인하려는 것은 하나다. 설비마다 동시에 받을 수 있는 수가 다르며,
- * 크레인 기준으로 일반화하면 컨베이어와 소터가 제 성능을 내지 못한다.
+ * <p>설비마다 동시에 받을 수 있는 수가 다르다.
+ * 크레인 기준으로 일반화하면 컨베이어와 소터의 처리량이 제한된다.
  */
 class EquipmentTest {
 
