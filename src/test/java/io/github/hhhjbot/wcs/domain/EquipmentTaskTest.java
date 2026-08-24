@@ -19,7 +19,8 @@ class EquipmentTaskTest {
 
     /** 크레인이 랙에서 케이스를 꺼내 P&D로 옮기는 작업. */
     private EquipmentTask craneTask() {
-        return new EquipmentTask("TO-00001-1", "SC-A01", "CS-9001", "A-01-03-02", "PND-A01");
+        return new EquipmentTask(TaskNo.of("TO-00001", 1), "SC-A01", "CS-9001",
+                LocationCode.of("A-01-03-02"), LocationCode.of("PND-A01"));
     }
 
     @Nested
@@ -36,16 +37,19 @@ class EquipmentTaskTest {
         @DisplayName("필수 항목이 비어 있으면 생성되지 않는다")
         void rejectsBlankFields() {
             assertThrows(NullPointerException.class,
-                    () -> new EquipmentTask(null, "SC-A01", "CS-9001", "A-01-03-02", "PND-A01"));
+                    () -> new EquipmentTask(null, "SC-A01", "CS-9001",
+                            LocationCode.of("A-01-03-02"), LocationCode.of("PND-A01")));
             assertThrows(IllegalArgumentException.class,
-                    () -> new EquipmentTask("TO-1", "  ", "CS-9001", "A-01-03-02", "PND-A01"));
+                    () -> new EquipmentTask(TaskNo.of("TO-1", 1), "  ", "CS-9001",
+                            LocationCode.of("A-01-03-02"), LocationCode.of("PND-A01")));
         }
 
         @Test
         @DisplayName("출발지와 목적지가 같으면 생성되지 않는다")
         void rejectsSameLocation() {
             assertThrows(IllegalArgumentException.class,
-                    () -> new EquipmentTask("TO-1", "SC-A01", "CS-9001", "PND-A01", "PND-A01"));
+                    () -> new EquipmentTask(TaskNo.of("TO-1", 1), "SC-A01", "CS-9001",
+                            LocationCode.of("PND-A01"), LocationCode.of("PND-A01")));
         }
     }
 
@@ -215,9 +219,12 @@ class EquipmentTaskTest {
     @Test
     @DisplayName("출고 지시 하나가 설비별 작업으로 나뉜다")
     void oneOrderSplitsIntoEquipmentTasks() {
-        var crane = new EquipmentTask("TO-00001-1", "SC-A01", "CS-9001", "A-01-03-02", "PND-A01");
-        var conveyor = new EquipmentTask("TO-00001-2", "CV-01", "CS-9001", "PND-A01", "IND-01");
-        var sorter = new EquipmentTask("TO-00001-3", "SRT-01", "CS-9001", "IND-01", "CHUTE-3");
+        var crane = new EquipmentTask(TaskNo.of("TO-00001", 1), "SC-A01", "CS-9001",
+                LocationCode.of("A-01-03-02"), LocationCode.of("PND-A01"));
+        var conveyor = new EquipmentTask(TaskNo.of("TO-00001", 2), "CV-01", "CS-9001",
+                LocationCode.of("PND-A01"), LocationCode.of("IND-01"));
+        var sorter = new EquipmentTask(TaskNo.of("TO-00001", 3), "SRT-01", "CS-9001",
+                LocationCode.of("IND-01"), LocationCode.of("CHUTE-3"));
 
         // 같은 화물이 설비를 옮겨 다닌다
         assertEquals("CS-9001", crane.getLoadId());
@@ -225,7 +232,7 @@ class EquipmentTaskTest {
         assertEquals(conveyor.getLoadId(), sorter.getLoadId());
 
         // 앞 작업의 목적지가 다음 작업의 출발지가 된다
-        assertEquals(crane.getToCode(), conveyor.getFromCode());
-        assertEquals(conveyor.getToCode(), sorter.getFromCode());
+        assertEquals(crane.getTo(), conveyor.getFrom());
+        assertEquals(conveyor.getTo(), sorter.getFrom());
     }
 }

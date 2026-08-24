@@ -1,6 +1,7 @@
 package io.github.hhhjbot.wcs.domain;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -40,17 +41,30 @@ public final class TaskList {
         Objects.requireNonNull(task, "작업은 필수입니다");
 
         if (find(task.getTaskNo()).isPresent()) {
-            throw new IllegalArgumentException("이미 등록된 작업 번호입니다: " + task.getTaskNo());
+            throw new IllegalArgumentException("이미 등록된 작업 번호입니다: " + task.getTaskNo().value());
         }
         tasks.add(task);
     }
 
     /** 작업 번호로 찾는다. */
-    public Optional<EquipmentTask> find(String taskNo) {
+    public Optional<EquipmentTask> find(TaskNo taskNo) {
         Objects.requireNonNull(taskNo, "작업 번호는 필수입니다");
         return tasks.stream()
                 .filter(task -> task.getTaskNo().equals(taskNo))
                 .findFirst();
+    }
+
+    /**
+     * 한 출고 지시에서 나온 작업 전체. 순번 순으로 돌려준다.
+     *
+     * <p>지시의 진행 상황을 보려면 세 건을 함께 봐야 한다.
+     */
+    public List<EquipmentTask> byOrder(String orderNo) {
+        Objects.requireNonNull(orderNo, "지시번호는 필수입니다");
+        return tasks.stream()
+                .filter(task -> task.getOrderNo().equals(orderNo))
+                .sorted(Comparator.comparing(EquipmentTask::getTaskNo))
+                .toList();
     }
 
     /** 등록된 작업 전체. 순서는 등록 순이다. */

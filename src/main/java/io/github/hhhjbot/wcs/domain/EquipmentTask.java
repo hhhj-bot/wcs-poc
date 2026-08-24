@@ -14,8 +14,13 @@ import java.util.Objects;
  *   TO-00001-3   SRT-01    IND-01     → CHUTE-3     소터
  * </pre>
  *
- * <p>앞 작업이 완료되어야 다음 작업이 생성된다. 크레인이 P&amp;D에 내려놓기 전에는
- * 컨베이어가 가져갈 물건이 없기 때문이다.
+ * <p>지시 하나에 대한 작업 세 건은 한꺼번에 만들어지고, 조건이 갖춰진 것부터 하달된다.
+ * 아직 하달되지 않은 작업은 {@link TaskStatus#QUEUED} 상태로 목록에 남는다.
+ *
+ * <h3>자기 구간만 안다</h3>
+ * 크레인 작업의 목적지는 P&amp;D다. 그 화물이 결국 어느 슈트로 가는지는 이 작업이 모른다.
+ * 알아야 하면 {@link TaskNo#orderNo()}로 지시를 찾아간다.
+ * 최종 목적지를 여기에 복사해 두면 지시의 슈트가 바뀔 때 두 값이 어긋난다.
  *
  * <h3>상태 변경</h3>
  * 상태는 {@link #transitionTo(TaskStatus)}로만 바꿀 수 있고, 그 안에서
@@ -28,31 +33,49 @@ import java.util.Objects;
  */
 public class EquipmentTask {
 
-    private final String taskNo;
+    private final TaskNo taskNo;
     private final String equipmentCode;
     private final String loadId;
-    private final String fromCode;
-    private final String toCode;
+    private final LocationCode from;
+    private final LocationCode to;
 
     private TaskStatus status;
     private String reason;
 
-    public EquipmentTask(String taskNo,
+    public EquipmentTask(TaskNo taskNo,
                          String equipmentCode,
                          String loadId,
-                         String fromCode,
-                         String toCode) {
-        this.taskNo = require(taskNo, "taskNo");
-        this.equipmentCode = require(equipmentCode, "equipmentCode");
-        this.loadId = require(loadId, "loadId");
-        this.fromCode = require(fromCode, "fromCode");
-        this.toCode = require(toCode, "toCode");
+                         LocationCode from,
+                         LocationCode to) {
+        this.taskNo = Objects.requireNonNull(taskNo, "작업 번호는 필수입니다");
+        this.equipmentCode = require(equipmentCode, "설비 코드");
+        this.loadId = require(loadId, "화물 번호");
+        this.from = Objects.requireNonNull(from, "출발지는 필수입니다");
+        this.to = Objects.requireNonNull(to, "목적지는 필수입니다");
 
-        if (this.fromCode.equals(this.toCode)) {
+        if (this.from.equals(this.to)) {
             throw new IllegalArgumentException(
-                    "출발지와 목적지가 같습니다: " + this.fromCode);
+                    "출발지와 목적지가 같습니다: " + this.from.value());
         }
         this.status = TaskStatus.CREATED;
+    }
+
+    /**
+     * 지시의 {@code seq}번째 홉을 작업으로 만든다.
+     *
+     * <p>경로의 홉은 화물을 모르는 계획이고, 지시는 경로를 모른다.
+     * 둘을 합쳐 실행 단위를 만드는 자리가 여기다.
+     */
+    public static EquipmentTask of(OutboundOrder order, int seq, Route.Hop hop) {
+        Objects.requireNonNull(order, "출고 지시는 필수입니다");
+        Objects.requireNonNull(hop, "홉은 필수입니다");
+
+        return new EquipmentTask(
+                order.taskNo(seq),
+                hop.equipment().code(),
+                order.loadId(),
+                hop.from(),
+                hop.to());
     }
 
     // ------------------------------------------------------------------
@@ -81,13 +104,13 @@ public class EquipmentTask {
     /** 인터록 위반으로 하달을 차단한다. 사유를 남겨 조치할 수 있게 한다. */
     public void block(String reason) {
         transitionTo(TaskStatus.BLOCKED);
-        this.reason = require(reason, "reason");
+        this.reason = require(reason, "사유");
     }
 
     /** 설비 이상 또는 시한 초과로 중단한다. */
     public void fail(String reason) {
         transitionTo(TaskStatus.FAILED);
-        this.reason = require(reason, "reason");
+        this.reason = require(reason, "사유");
     }
 
     // ------------------------------------------------------------------
@@ -110,18 +133,25 @@ public class EquipmentTask {
         return status.isRetryable();
     }
 
-    public String getTaskNo() { return taskNo; }
+    /** 같은 출고 지시에서 나온 작업인지. */
+    public boolean sameOrderAs(EquipmentTask other) {
+        Objects.requireNonNull(other, "비교할 작업은 필수입니다");
+        return taskNo.sameOrder(other.taskNo);
+    }
+
+    public TaskNo getTaskNo() { return taskNo; }
+    public String getOrderNo() { return taskNo.orderNo(); }
     public String getEquipmentCode() { return equipmentCode; }
     public String getLoadId() { return loadId; }
-    public String getFromCode() { return fromCode; }
-    public String getToCode() { return toCode; }
+    public LocationCode getFrom() { return from; }
+    public LocationCode getTo() { return to; }
     public TaskStatus getStatus() { return status; }
     public String getReason() { return reason; }
 
     @Override
     public String toString() {
         return "%s [%s] %s: %s → %s (%s)"
-                .formatted(taskNo, equipmentCode, loadId, fromCode, toCode, status);
+                .formatted(taskNo, equipmentCode, loadId, from, to, status);
     }
 
     // ------------------------------------------------------------------

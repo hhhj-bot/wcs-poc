@@ -55,15 +55,12 @@ public record OutboundOrder(
     /**
      * 이 지시의 {@code seq} 번째 설비 작업 번호. {@code TO-00001} + {@code 1} → {@code TO-00001-1}.
      *
-     * <p>작업 번호를 문자열로 조립하는 곳을 여기 하나로 모은다.
+     * <p>조립 규칙은 {@link TaskNo}가 갖는다. 지시는 자기 번호만 넘긴다.
      *
      * @throws IllegalArgumentException 순번이 1 미만일 때
      */
-    public String taskNo(int seq) {
-        if (seq < 1) {
-            throw new IllegalArgumentException("작업 순번은 1 이상이어야 합니다: " + seq);
-        }
-        return "%s-%d".formatted(orderNo, seq);
+    public TaskNo taskNo(int seq) {
+        return TaskNo.of(orderNo, seq);
     }
 
     /** 첫 구간을 담당할 크레인. 출발지 주소에서 정해진다. (ADR-0010) */

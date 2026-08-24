@@ -105,9 +105,9 @@ class OutboundOrderTest {
         void buildsFromOrderNoAndSeq() {
             var order = order();
 
-            assertEquals("TO-00001-1", order.taskNo(1));
-            assertEquals("TO-00001-2", order.taskNo(2));
-            assertEquals("TO-00001-3", order.taskNo(3));
+            assertEquals("TO-00001-1", order.taskNo(1).value());
+            assertEquals("TO-00001-2", order.taskNo(2).value());
+            assertEquals("TO-00001-3", order.taskNo(3).value());
         }
 
         @Test

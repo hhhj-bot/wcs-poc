@@ -29,7 +29,8 @@ class TaskListTest {
 
     /** 지정한 설비의 작업을 만들어 목록에 넣는다. */
     private EquipmentTask register(String taskNo, Equipment equipment, String from, String to) {
-        var task = new EquipmentTask(taskNo, equipment.code(), "CS-9001", from, to);
+        var task = new EquipmentTask(TaskNo.parse(taskNo), equipment.code(), "CS-9001",
+                LocationCode.of(from), LocationCode.of(to));
         tasks.add(task);
         return task;
     }
@@ -49,8 +50,8 @@ class TaskListTest {
         void findsByTaskNo() {
             register("TO-00001-1", CRANE, "A-01-03-02", "PND-A01");
 
-            assertTrue(tasks.find("TO-00001-1").isPresent());
-            assertTrue(tasks.find("TO-00099-1").isEmpty());
+            assertTrue(tasks.find(TaskNo.parse("TO-00001-1")).isPresent());
+            assertTrue(tasks.find(TaskNo.parse("TO-00099-1")).isEmpty());
             assertEquals(1, tasks.size());
         }
 

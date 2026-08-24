@@ -84,7 +84,8 @@ public class ScenarioRun {
             System.out.printf("  %s   %s%n", order.taskNo(seq), hop.equipment().code());
 
             var task = new EquipmentTask(
-                    order.taskNo(seq), hop.equipment().code(), order.loadId(), hop.from(), hop.to());
+                    order.taskNo(seq), hop.equipment().code(), order.loadId(),
+                    LocationCode.of(hop.from()), LocationCode.of(hop.to()));
             ALL_TASKS.add(task);
 
             step(task, TaskStatus.QUEUED,    "대기열 등록");
@@ -142,7 +143,7 @@ public class ScenarioRun {
         title("결과");
 
         EquipmentTask last = done.get(done.size() - 1);
-        var actualChute = LocationCode.of(last.getToCode());
+        var actualChute = last.getTo();
 
         System.out.println("  설비 작업    " + done.size() + "건 완료");
         System.out.println("  계획 슈트    " + order.plannedChute().value());
@@ -160,7 +161,8 @@ public class ScenarioRun {
                     LocationCode.of("A-01-03-0" + (i % 9 + 1)),
                     first.plannedChute(), first.cutoff());
 
-            var task = new EquipmentTask(other.taskNo(2), CONVEYOR.code(), other.loadId(), PND, INDUCTION);
+            var task = new EquipmentTask(other.taskNo(2), CONVEYOR.code(), other.loadId(),
+                    LocationCode.of(PND), LocationCode.of(INDUCTION));
             task.transitionTo(TaskStatus.QUEUED);
             task.transitionTo(TaskStatus.SENT);
             ALL_TASKS.add(task);

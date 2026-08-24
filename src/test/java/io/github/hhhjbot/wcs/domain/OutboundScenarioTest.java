@@ -76,7 +76,8 @@ class OutboundScenarioTest {
     /** 경로의 {@code seq} 번째 홉으로 설비 작업을 만든다. → OutboundFlow */
     private static EquipmentTask taskOf(String orderNo, String loadId, List<Hop> route, int seq) {
         Hop hop = route.get(seq - 1);
-        return new EquipmentTask(orderNo + "-" + seq, hop.equipmentCode(), loadId, hop.from(), hop.to());
+        return new EquipmentTask(TaskNo.of(orderNo, seq), hop.equipmentCode(), loadId,
+                LocationCode.of(hop.from()), LocationCode.of(hop.to()));
     }
 
     /** 하달 → 수신확인 → 실행 → 완료. 설비 한 대와의 핸드셰이크 한 번에 해당한다. */
@@ -137,7 +138,7 @@ class OutboundScenarioTest {
             // 지시 하나가 설비 작업 셋으로 나뉜다
             assertEquals(3, done.size());
             assertEquals(List.of("TO-00001-1", "TO-00001-2", "TO-00001-3"),
-                    done.stream().map(EquipmentTask::getTaskNo).toList());
+                    done.stream().map(t -> t.getTaskNo().value()).toList());
         }
 
         @Test
@@ -149,9 +150,9 @@ class OutboundScenarioTest {
             var conveyor = taskOf("TO-00001", "CS-9001", route, 2);
             var sorter   = taskOf("TO-00001", "CS-9001", route, 3);
 
-            assertEquals(crane.getToCode(),    conveyor.getFromCode(), "P&D에서 인수인계된다");
-            assertEquals(conveyor.getToCode(), sorter.getFromCode(),   "인덕션에서 소터로 태운다");
-            assertEquals("CHUTE-3", sorter.getToCode());
+            assertEquals(crane.getTo(),    conveyor.getFrom(), "P&D에서 인수인계된다");
+            assertEquals(conveyor.getTo(), sorter.getFrom(),   "인덕션에서 소터로 태운다");
+            assertEquals(LocationCode.of("CHUTE-3"), sorter.getTo());
         }
 
         @Test
