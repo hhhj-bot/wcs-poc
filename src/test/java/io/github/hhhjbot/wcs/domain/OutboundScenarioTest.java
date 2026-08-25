@@ -1,10 +1,11 @@
 package io.github.hhhjbot.wcs.domain;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -12,211 +13,211 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 출고 지시 하나가 랙에서 슈트까지 흘러가는 전체 흐름을 검증한다.
+ * 출고 지시가 랙에서 슈트까지 흘러가는 전체 흐름을 검증한다.
  *
  * <p>단위 테스트가 규칙 하나를 검증한다면 이 클래스는 규칙들이 이어졌을 때
- * 업무가 흐르는지를 검증한다.
- *
- * <p>조율 계층은 아직 도메인 계층에 없으므로 흐름 구성은 아래 helper가 담당한다.
- * 해당 책임을 갖는 객체가 도입되면 helper 호출을 그 객체로 대체한다.
+ * 업무가 흐르는지를 검증한다. 조율은 {@link OutboundFlow}가 하므로
+ * 여기서는 설비 응답만 흉내 내고 나머지는 본 코드를 그대로 거친다.
  *
  * <pre>
- *   routeOf         설비 경로 구성          → Route / Move
- *   taskOf          구간별 설비 작업 생성       → OutboundFlow
- *   inFlightCount   설비별 진행 중 작업 계수   → TaskList   (ADR-0009)
- *   완료 후 다음 작업 생성 순서               → OutboundFlow
+ *   flow.accept(order)    상위 시스템이 지시를 내렸다
+ *   flow.dispatch()       WCS 판단 주기 한 번
+ *   complete(task)        설비가 완료 신호를 올렸다
  * </pre>
  *
  * <h3>시나리오 목록</h3>
  * <pre>
- *   1. 지시 1건이 설비 셋을 거쳐 완료된다            구현됨
- *   2. 설비마다 동시에 받을 수 있는 수가 다르다       구현됨
- *   3. 컷오프가 임박한 지시가 먼저 하달된다           4단계
- *   4. P&amp;D 점유 시 BLOCKED, 해소 후 재시도        5단계
- *   5. 리딩 실패는 리젝트 슈트로 배출                7단계
- *   6. 슈트 만재 시 재순환 후 재시도                 7단계
+ *   1. 지시 1건이 설비 셋을 거쳐 완료된다             구현됨
+ *   2. 두 통로에서 나온 화물이 컨베이어에서 합류한다    구현됨
+ *   3. 화물이 자리를 하나씩 옮겨 간다                 구현됨
+ *   4. 리딩 실패는 리젝트 슈트로 배출                 설비 게이트웨이 이후
+ *   5. 슈트 만재 시 재순환 후 재시도                  설비 게이트웨이 이후
  * </pre>
  */
 class OutboundScenarioTest {
 
-    // ------------------------------------------------------------------
-    // 설비 구성 — 3단계에서 application.yml 로 분리한다
-    // ------------------------------------------------------------------
+    private static final LocalDateTime CUTOFF = LocalDateTime.of(2026, 8, 28, 16, 0);
 
-    private static final Equipment CRANE    = new Equipment("SC-A01", 1);   // 포크 1개
-    private static final Equipment CONVEYOR = new Equipment("CV-01", 8);    // 존 8개
-    private static final Equipment SORTER   = new Equipment("SRT-01", 24);  // 캐리어 24개
+    private WarehouseLayout layout;
+    private TaskList tasks;
+    private OutboundFlow flow;
 
-    /** 크레인과 컨베이어가 화물을 주고받는 자리. */
-    private static final String PND       = "PND-A01";
-    /** 컨베이어에서 소터로 화물을 태우는 자리. */
-    private static final String INDUCTION = "IND-01";
+    @BeforeEach
+    void setUp() {
+        layout = new WarehouseLayout(
+                List.of(new Equipment("SC-A01", 1),    // 포크 1개
+                        new Equipment("SC-A02", 1),
+                        new Equipment("CV-01", 8),     // 존 8개
+                        new Equipment("SRT-01", 24)),  // 캐리어 24개
+                LocationCode.of("IND-01"), "CV-01", "SRT-01");
+        tasks = new TaskList();
+        flow = new OutboundFlow(layout, new OrderList(), tasks);
+    }
 
-    // ------------------------------------------------------------------
-    // helper
-    // ------------------------------------------------------------------
-
-    /** 구간 하나. 어느 설비가 어디서 어디로 옮기는가. → Route / Move */
-    private record Move(String equipmentCode, String from, String to) { }
+    private static OutboundOrder order(String orderNo, String loadId,
+                                       String source, String chute, LocalDateTime cutoff) {
+        return new OutboundOrder(orderNo, loadId,
+                LocationCode.of(source), LocationCode.of(chute), cutoff);
+    }
 
     /**
-     * 출발 로케이션과 목적 슈트로 설비 경로를 구성한다.
+     * 설비가 명령을 받아 완료 신호를 올리기까지.
      *
-     * <p>담당 크레인은 {@link LocationCode#craneCode()} 로 출발 주소에서 도출한다. (ADR-0010)
-     * 경로는 조건문이 아니라 목록이므로 설비가 늘면 항목이 하나 는다. (ADR-0008)
+     * <p>실제로는 게이트웨이가 태그를 읽어 이 전이를 일으킨다.
+     * 그 계층이 아직 없으므로 테스트가 대신한다.
      */
-    private static List<Move> routeOf(LocationCode source, LocationCode chute) {
-        return List.of(
-                new Move(source.craneCode(), source.value(), PND),
-                new Move(CONVEYOR.code(),    PND,            INDUCTION),
-                new Move(SORTER.code(),      INDUCTION,      chute.value())
-        );
+    private static void complete(EquipmentTask task) {
+        task.transitionTo(TaskStatus.ACKED);       // STS.ACK
+        task.transitionTo(TaskStatus.EXECUTING);   // STS.STATE = RUNNING
+        task.transitionTo(TaskStatus.COMPLETED);   // STS.STATE = DONE
     }
 
-    /** 경로의 {@code seq} 번째 구간으로 설비 작업을 만든다. → OutboundFlow */
-    private static EquipmentTask taskOf(String orderNo, String loadId, List<Move> route, int seq) {
-        Move move = route.get(seq - 1);
-        return new EquipmentTask(TaskNo.of(orderNo, seq), move.equipmentCode(), loadId,
-                LocationCode.of(move.from()), LocationCode.of(move.to()));
+    /** 모든 작업이 끝났는지. */
+    private boolean allDone() {
+        return tasks.all().stream().allMatch(task -> task.getStatus() == TaskStatus.COMPLETED);
     }
 
-    /** 하달 → 수신확인 → 실행 → 완료. 설비 한 대와의 핸드셰이크 한 번에 해당한다. */
-    private static void runToCompletion(EquipmentTask task) {
-        task.transitionTo(TaskStatus.QUEUED);
-        task.transitionTo(TaskStatus.SENT);       // CMD 기록 후 트리거 상승
-        task.transitionTo(TaskStatus.ACKED);      // 설비 수신확인
-        task.transitionTo(TaskStatus.EXECUTING);  // 설비 동작 중
-        task.transitionTo(TaskStatus.COMPLETED);  // 완료 신호 수신
+    /** 한 주기 돌리고, 하달된 것을 모두 완료시킨다. */
+    private List<EquipmentTask> cycle() {
+        var dispatched = flow.dispatch().dispatched();
+        dispatched.forEach(OutboundScenarioTest::complete);
+        return dispatched;
     }
-
-    /** 해당 설비에 진행 중인 작업 수. → TaskList (ADR-0009) */
-    private static int inFlightCount(List<EquipmentTask> all, String equipmentCode) {
-        return (int) all.stream()
-                .filter(t -> t.getEquipmentCode().equals(equipmentCode))
-                .filter(EquipmentTask::isInFlight)
-                .count();
-    }
-
-    // ------------------------------------------------------------------
 
     @Nested
-    @DisplayName("시나리오 1 — 지시 하나가 랙에서 슈트까지 간다")
-    class OneOrderFromRackToChute {
+    @DisplayName("지시 한 건이 랙에서 슈트까지")
+    class SingleOrder {
 
         @Test
-        @DisplayName("설비 셋을 순서대로 거쳐 완료된다")
-        void flowsThroughThreeEquipments() {
-            // 상위 시스템이 내려준 지시 한 건. 네 값은 OutboundOrder 도입 시 한 객체가 된다.
-            String orderNo = "TO-00001";
-            String loadId  = "CS-9001";
-            var source = LocationCode.of("A-01-03-02");
-            var chute  = LocationCode.of("CHUTE-3");
+        @DisplayName("세 주기에 걸쳐 설비 셋을 거친다")
+        void passesThreeEquipments() {
+            flow.accept(order("TO-00001", "CS-9001", "A-01-03-02", "CHUTE-3", CUTOFF));
 
-            var route = routeOf(source, chute);
-            var done  = new ArrayList<EquipmentTask>();
+            assertEquals("SC-A01", cycle().get(0).getEquipmentCode(), "1주기 · 크레인");
+            assertEquals("CV-01", cycle().get(0).getEquipmentCode(), "2주기 · 컨베이어");
+            assertEquals("SRT-01", cycle().get(0).getEquipmentCode(), "3주기 · 소터");
 
-            // 크레인 — 랙에서 꺼내 P&D에 내려놓는다
-            var crane = taskOf(orderNo, loadId, route, 1);
-            assertEquals("SC-A01", crane.getEquipmentCode(), "출발 로케이션이 담당 크레인을 결정한다");
-            assertEquals(source.craneCode(), crane.getEquipmentCode());
-            runToCompletion(crane);
-            done.add(crane);
-
-            // 컨베이어 — 크레인이 P&D에 내려놓은 뒤에야 가져갈 화물이 생긴다.
-            // 이 선후 관계는 OutboundFlow 도입 시 코드로 강제한다.
-            assertEquals(TaskStatus.COMPLETED, crane.getStatus());
-            var conveyor = taskOf(orderNo, loadId, route, 2);
-            runToCompletion(conveyor);
-            done.add(conveyor);
-
-            // 소터 — 인덕션에서 태워 슈트로 배출한다
-            assertEquals(TaskStatus.COMPLETED, conveyor.getStatus());
-            var sorter = taskOf(orderNo, loadId, route, 3);
-            runToCompletion(sorter);
-            done.add(sorter);
-
-            // 지시 하나가 설비 작업 셋으로 나뉜다
-            assertEquals(3, done.size());
-            assertEquals(List.of("TO-00001-1", "TO-00001-2", "TO-00001-3"),
-                    done.stream().map(t -> t.getTaskNo().value()).toList());
+            assertEquals(3, tasks.byStatus(TaskStatus.COMPLETED).size());
         }
 
         @Test
-        @DisplayName("앞 작업의 목적지가 다음 작업의 출발지가 된다")
+        @DisplayName("화물이 자리를 하나씩 옮겨 간다")
+        void movesFromStationToStation() {
+            flow.accept(order("TO-00001", "CS-9001", "A-01-03-02", "CHUTE-3", CUTOFF));
+
+            var pnd = LocationCode.of("PND-A01");
+            var induction = LocationCode.of("IND-01");
+            var chute = LocationCode.of("CHUTE-3");
+
+            cycle();   // 크레인이 P&D에 내려놓았다
+            assertEquals(1, tasks.occupancyOf(pnd));
+            assertEquals(0, tasks.occupancyOf(induction));
+
+            cycle();   // 컨베이어가 가져가 인덕션에 올렸다
+            assertEquals(0, tasks.occupancyOf(pnd), "가져갔으므로 P&D가 비었다");
+            assertEquals(1, tasks.occupancyOf(induction));
+
+            cycle();   // 소터가 슈트로 배출했다
+            assertEquals(0, tasks.occupancyOf(induction));
+            assertEquals(1, tasks.occupancyOf(chute), "슈트는 치우기 전까지 쌓인다");
+        }
+
+        @Test
+        @DisplayName("앞 구간의 목적지가 다음 구간의 출발지가 된다")
         void handoverPointsAreChained() {
-            var route = routeOf(LocationCode.of("A-01-03-02"), LocationCode.of("CHUTE-3"));
+            var created = flow.accept(order("TO-00001", "CS-9001", "A-01-03-02", "CHUTE-3", CUTOFF));
 
-            var crane    = taskOf("TO-00001", "CS-9001", route, 1);
-            var conveyor = taskOf("TO-00001", "CS-9001", route, 2);
-            var sorter   = taskOf("TO-00001", "CS-9001", route, 3);
-
-            assertEquals(crane.getTo(),    conveyor.getFrom(), "P&D에서 인수인계된다");
-            assertEquals(conveyor.getTo(), sorter.getFrom(),   "인덕션에서 소터로 태운다");
-            assertEquals(LocationCode.of("CHUTE-3"), sorter.getTo());
+            assertEquals(created.get(0).getTo(), created.get(1).getFrom(), "P&D에서 인수인계");
+            assertEquals(created.get(1).getTo(), created.get(2).getFrom(), "인덕션에서 소터로");
+            assertEquals(LocationCode.of("CHUTE-3"), created.get(2).getTo());
         }
 
         @Test
         @DisplayName("화물 번호는 설비를 옮겨 다녀도 바뀌지 않는다")
-        void loadIdSurvivesEveryLeg() {
-            var route = routeOf(LocationCode.of("A-01-03-02"), LocationCode.of("CHUTE-3"));
+        void loadIdSurvivesEveryMove() {
+            var created = flow.accept(order("TO-00001", "CS-9001", "A-01-03-02", "CHUTE-3", CUTOFF));
 
-            for (int seq = 1; seq <= 3; seq++) {
-                assertEquals("CS-9001", taskOf("TO-00001", "CS-9001", route, seq).getLoadId());
-            }
+            assertTrue(created.stream().allMatch(task -> task.getLoadId().equals("CS-9001")));
         }
     }
 
     @Nested
-    @DisplayName("시나리오 2 — 설비마다 받을 수 있는 수가 다르다")
-    class EquipmentCapacityDiffers {
+    @DisplayName("두 통로에서 나와 합류")
+    class TwoAisles {
 
         @Test
-        @DisplayName("크레인이 한 건을 물고 있으면 다음 지시는 기다린다")
-        void craneTakesOneAtATime() {
-            var route = routeOf(LocationCode.of("A-01-03-02"), LocationCode.of("CHUTE-3"));
-            var all   = new ArrayList<EquipmentTask>();
+        @DisplayName("통로가 다르면 크레인 두 대가 동시에 움직인다")
+        void cranesRunInParallel() {
+            flow.accept(order("TO-00001", "CS-9001", "A-01-03-02", "CHUTE-3", CUTOFF));
+            flow.accept(order("TO-00002", "CS-9002", "A-02-05-01", "CHUTE-1", CUTOFF));
 
-            var first = taskOf("TO-00001", "CS-9001", route, 1);
-            first.transitionTo(TaskStatus.QUEUED);
-            first.transitionTo(TaskStatus.SENT);
-            all.add(first);
+            var first = cycle();
 
-            assertFalse(CRANE.canAccept(inFlightCount(all, "SC-A01")),
-                    "포크가 하나뿐이라 두 번째 작업을 받을 수 없다");
-
-            first.transitionTo(TaskStatus.ACKED);
-            first.transitionTo(TaskStatus.EXECUTING);
-            first.transitionTo(TaskStatus.COMPLETED);
-            assertTrue(CRANE.canAccept(inFlightCount(all, "SC-A01")));
+            assertEquals(2, first.size());
+            assertEquals(List.of("SC-A01", "SC-A02"),
+                    first.stream().map(EquipmentTask::getEquipmentCode).sorted().toList());
         }
 
         @Test
-        @DisplayName("컨베이어는 여러 화물을 동시에 싣는다")
-        void conveyorCarriesManyAtOnce() {
-            var route = routeOf(LocationCode.of("A-01-03-02"), LocationCode.of("CHUTE-3"));
-            var all   = new ArrayList<EquipmentTask>();
+        @DisplayName("컨베이어는 정원이 8이지만 인덕션이 1이라 하나씩 태운다")
+        void inductionIsTheBottleneck() {
+            flow.accept(order("TO-00001", "CS-9001", "A-01-03-02", "CHUTE-3", CUTOFF));
+            flow.accept(order("TO-00002", "CS-9002", "A-02-05-01", "CHUTE-1", CUTOFF));
 
-            // 서로 다른 지시 다섯 건이 컨베이어에 올라가 있는 상태
-            for (int i = 1; i <= 5; i++) {
-                var task = taskOf("TO-0000" + i, "CS-900" + i, route, 2);
-                task.transitionTo(TaskStatus.QUEUED);
-                task.transitionTo(TaskStatus.SENT);
-                all.add(task);
+            cycle();   // 크레인 두 대가 각자 P&D에 내려놓았다
+
+            var second = flow.dispatch();
+
+            assertEquals(1, second.dispatchedCount(), "컨베이어는 여유가 있지만");
+            assertEquals(1, second.blockedCount());
+            assertTrue(second.blocked().get(0).getReason().contains("IND-01"),
+                    "막는 것은 컨베이어가 아니라 인덕션이다: " + second.blocked().get(0).getReason());
+        }
+
+        @Test
+        @DisplayName("차례를 기다렸다가 각자의 슈트로 배출된다")
+        void dischargesToOwnChutes() {
+            flow.accept(order("TO-00001", "CS-9001", "A-01-03-02", "CHUTE-3", CUTOFF));
+            flow.accept(order("TO-00002", "CS-9002", "A-02-05-01", "CHUTE-1", CUTOFF));
+
+            for (int cycle = 1; cycle <= 8 && !allDone(); cycle++) {
+                cycle();
             }
 
-            assertEquals(5, inFlightCount(all, "CV-01"));
-            assertTrue(CONVEYOR.canAccept(inFlightCount(all, "CV-01")), "존이 8개라 세 건 더 받는다");
-            assertEquals(3, CONVEYOR.availableSlots(inFlightCount(all, "CV-01")));
+            assertTrue(allDone(), "여덟 주기 안에 끝난다");
+            assertEquals(1, tasks.occupancyOf(LocationCode.of("CHUTE-3")));
+            assertEquals(1, tasks.occupancyOf(LocationCode.of("CHUTE-1")));
+            assertEquals(6, tasks.byStatus(TaskStatus.COMPLETED).size());
+        }
+    }
 
-            // 동일 상황을 크레인 기준으로 판정하면 처리량이 수십 분의 일이 된다
-            assertFalse(CRANE.canAccept(inFlightCount(all, "CV-01")));
+    @Nested
+    @DisplayName("설비마다 동시 처리 수가 다르다")
+    class EquipmentCapacity {
+
+        @Test
+        @DisplayName("크레인은 한 건, 컨베이어는 여러 건")
+        void craneHoldsOneConveyorHoldsMany() {
+            var crane = layout.equipment("SC-A01");
+            var conveyor = layout.equipment("CV-01");
+
+            assertFalse(crane.canAccept(1), "포크가 하나다");
+            assertTrue(conveyor.canAccept(1), "존마다 화물이 올라간다");
+            assertTrue(conveyor.canAccept(7));
+            assertFalse(conveyor.canAccept(8));
         }
 
         @Test
-        @DisplayName("소터는 캐리어 수만큼 받는다")
-        void sorterCarriesOnePerCarrier() {
-            assertTrue(SORTER.canAccept(23));
-            assertFalse(SORTER.canAccept(24), "캐리어가 24개뿐이다");
+        @DisplayName("같은 통로의 두 번째 지시는 크레인이 빌 때까지 기다린다")
+        void secondOrderWaitsForCrane() {
+            flow.accept(order("TO-00001", "CS-9001", "A-01-03-02", "CHUTE-3", CUTOFF));
+            flow.accept(order("TO-00002", "CS-9002", "A-01-05-01", "CHUTE-3", CUTOFF.plusHours(1)));
+
+            var result = flow.dispatch();
+
+            assertEquals(1, result.dispatchedCount());
+            assertEquals(1, result.blockedCount());
+            assertTrue(result.blocked().get(0).getReason().contains("EQP_BUSY"));
         }
     }
 }
