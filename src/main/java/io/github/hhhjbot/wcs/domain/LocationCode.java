@@ -36,8 +36,15 @@ public final class LocationCode {
 
     /** 존과 통로. 담당 크레인이 여기서 정해진다. */
     public record AisleRef(String zone, int aisle) {
+
+        /** 이 통로에 서는 크레인. (ADR-0010) */
         public String craneCode() {
             return "SC-%s%02d".formatted(zone, aisle);
+        }
+
+        /** 이 통로 끝의 P&amp;D 스테이션. 통로마다 하나씩 붙는다. */
+        public String pndCode() {
+            return "PND-%s%02d".formatted(zone, aisle);
         }
     }
 
@@ -164,6 +171,18 @@ public final class LocationCode {
      */
     public String craneCode() {
         return aisleRef().craneCode();
+    }
+
+    /**
+     * 이 자리가 속한 통로의 P&amp;D 스테이션.
+     *
+     * <p>랙에서 꺼낸 화물은 같은 통로의 P&amp;D로 나온다. 주소가 정해지면
+     * 인계 지점도 함께 정해지므로 별도 표를 두지 않는다. (ADR-0010)
+     *
+     * @throws IllegalStateException 통로에 속하지 않는 자리일 때
+     */
+    public LocationCode pnd() {
+        return LocationCode.of(aisleRef().pndCode());
     }
 
     /** 같은 크레인이 담당하는 자리인지. 작업 순서를 정할 때 쓴다. */
