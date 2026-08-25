@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: wcs-poc
+
+server:
+  port: 8080
+
+logging:
+  level:
+    io.github.hhhjbot.wcs: INFO
