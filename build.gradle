@@ -20,6 +20,11 @@ repositories {
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
+    // 지시 영속화. 버전을 적지 않는 것은 Spring Boot 플러그인이
+    // 3.3.5에 맞는 Hibernate·H2 버전을 골라 주기 때문이다.
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'com.h2database:h2'
+
     testImplementation platform('org.junit:junit-bom:5.11.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

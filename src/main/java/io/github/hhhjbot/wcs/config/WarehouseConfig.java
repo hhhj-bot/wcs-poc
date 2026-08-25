@@ -2,7 +2,7 @@ package io.github.hhhjbot.wcs.config;
 
 import io.github.hhhjbot.wcs.domain.Equipment;
 import io.github.hhhjbot.wcs.domain.LocationCode;
-import io.github.hhhjbot.wcs.domain.OrderList;
+import io.github.hhhjbot.wcs.domain.OrderRepository;
 import io.github.hhhjbot.wcs.domain.OutboundFlow;
 import io.github.hhhjbot.wcs.domain.OutboundOrder;
 import io.github.hhhjbot.wcs.domain.TaskList;
@@ -51,30 +51,35 @@ public class WarehouseConfig {
     }
 
     /**
-     * 작업 저장소. 지금은 메모리 위의 목록이다.
+     * 작업 저장소. 아직 메모리 위의 목록이다.
      *
      * <p>싱글턴 빈이므로 애플리케이션 전체가 같은 목록을 본다.
-     * 3단계에서 DB 구현으로 바꿔 끼울 자리다.
+     *
+     * <p>지시는 데이터베이스로 옮겼는데 작업은 두고 있다. 작업은 지시와 창고 구성에서
+     * 다시 펼칠 수 있는 파생물이라, 원본인 지시를 먼저 지킨 것이다.
+     * 작업까지 옮기려면 기동 시 작업이 없는 지시를 찾아 다시 펼치는 규칙이 필요하다.
      */
     @Bean
     public TaskList taskList() {
         return new TaskList();
     }
 
-    /** 지시 보관소. 작업에서 컷오프와 목적 슈트를 찾아올 때 쓴다. */
-    @Bean
-    public OrderList orderList() {
-        return new OrderList();
-    }
+    // 지시 보관소는 여기서 만들지 않는다.
+    // JpaOrderRepository 에 @Repository 가 붙어 있어 스프링이 직접 등록한다.
+    // 여기에 또 만들면 OrderRepository 타입 빈이 둘이 되어 기동할 때 죽는다.
 
     /**
      * 지시를 작업으로 펼치고 하달을 판단한다.
      *
      * <p>상태를 갖지 않으므로 싱글턴 빈 하나를 모두가 나눠 써도 안전하다.
      * 진행 상황은 작업 목록에만 있다.
+     *
+     * <p>{@code orders} 자리에 무엇이 꽂히는지는 이 클래스도 모른다.
+     * 지금은 {@code JpaOrderRepository}가, 테스트에서는
+     * {@code InMemoryOrderRepository}가 들어간다.
      */
     @Bean
-    public OutboundFlow outboundFlow(WarehouseLayout layout, OrderList orders, TaskList tasks) {
+    public OutboundFlow outboundFlow(WarehouseLayout layout, OrderRepository orders, TaskList tasks) {
         return new OutboundFlow(layout, orders, tasks);
     }
 

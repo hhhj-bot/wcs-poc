@@ -2,6 +2,29 @@ spring:
   application:
     name: wcs-poc
 
+  # 출고 지시를 담는 데이터베이스.
+  # mem 은 앱과 같은 프로세스에서 뜨는 메모리 모드다. 앱을 끄면 같이 사라진다.
+  # 디스크에 남기려면 jdbc:h2:file:./data/wcs 로 바꾸면 되는데,
+  # 그러면 지시는 남고 작업(TaskList)은 사라지는 반쪽 상태가 되므로
+  # 기동 시 작업을 다시 펼치는 규칙을 먼저 넣어야 한다.
+  datasource:
+    url: jdbc:h2:mem:wcs;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      # 기동할 때 테이블을 만들고 종료할 때 지운다. 실습이라 스키마 파일을 두지 않는다.
+      # 운영에서는 쓰지 않는다. 테이블이 통째로 날아간다.
+      ddl-auto: create-drop
+    # 실행되는 SQL 을 콘솔에 찍는다. JPA 가 무엇을 보내는지 눈으로 보려는 것이다.
+    show-sql: true
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
 server:
   port: 8080
 
