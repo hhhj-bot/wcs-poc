@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 설비 경로의 구성 규칙 검증.
  *
- * <p>홉이 실제로 이어지는지, 순번으로 홉을 꺼낼 수 있는지를 확인한다.
+ * <p>구간이 실제로 이어지는지, 순번으로 구간을 꺼낼 수 있는지를 확인한다.
  */
 class RouteTest {
 
@@ -29,9 +29,9 @@ class RouteTest {
     /** 랙에서 슈트까지의 표준 경로. */
     private static Route outboundRoute() {
         return Route.of(List.of(
-                new Route.Hop(CRANE,    RACK,      PND),
-                new Route.Hop(CONVEYOR, PND,       INDUCTION),
-                new Route.Hop(SORTER,   INDUCTION, CHUTE)));
+                new Route.Move(CRANE,    RACK,      PND),
+                new Route.Move(CONVEYOR, PND,       INDUCTION),
+                new Route.Move(SORTER,   INDUCTION, CHUTE)));
     }
 
     @Nested
@@ -39,7 +39,7 @@ class RouteTest {
     class Composition {
 
         @Test
-        @DisplayName("홉 순서대로 설비가 선다")
+        @DisplayName("구간 순서대로 설비가 선다")
         void keepsEquipmentOrder() {
             var route = outboundRoute();
 
@@ -59,8 +59,8 @@ class RouteTest {
         }
 
         @Test
-        @DisplayName("홉이 셋이면 지나는 자리는 넷이다")
-        void stopsAreOneMoreThanHops() {
+        @DisplayName("구간이 셋이면 지나는 자리는 넷이다")
+        void stopsAreOneMoreThanMoves() {
             var route = outboundRoute();
 
             assertEquals(List.of(RACK, PND, INDUCTION, CHUTE), route.stops());
@@ -74,10 +74,10 @@ class RouteTest {
             var buffer = LocationCode.of("PND-A02");
 
             var extended = Route.of(List.of(
-                    new Route.Hop(CRANE,        RACK,      buffer),
-                    new Route.Hop(depalletizer, buffer,    PND),
-                    new Route.Hop(CONVEYOR,     PND,       INDUCTION),
-                    new Route.Hop(SORTER,       INDUCTION, CHUTE)));
+                    new Route.Move(CRANE,        RACK,      buffer),
+                    new Route.Move(depalletizer, buffer,    PND),
+                    new Route.Move(CONVEYOR,     PND,       INDUCTION),
+                    new Route.Move(SORTER,       INDUCTION, CHUTE)));
 
             assertEquals(4, extended.size());
             assertEquals(RACK, extended.origin());
@@ -90,25 +90,25 @@ class RouteTest {
     class Continuity {
 
         @Test
-        @DisplayName("앞 홉의 목적지와 다음 홉의 출발지가 다르면 만들어지지 않는다")
+        @DisplayName("앞 구간의 목적지와 다음 구간의 출발지가 다르면 만들어지지 않는다")
         void rejectsBrokenChain() {
             var e = assertThrows(IllegalArgumentException.class,
                     () -> Route.of(List.of(
-                            new Route.Hop(CRANE,    RACK,      PND),
-                            new Route.Hop(CONVEYOR, INDUCTION, CHUTE))));
+                            new Route.Move(CRANE,    RACK,      PND),
+                            new Route.Move(CONVEYOR, INDUCTION, CHUTE))));
 
             assertTrue(e.getMessage().contains("CV-01"), "어느 설비에서 끊겼는지 알 수 있어야 한다");
         }
 
         @Test
-        @DisplayName("한 홉 안에서 출발지와 목적지가 같을 수 없다")
-        void rejectsSelfHop() {
+        @DisplayName("한 구간 안에서 출발지와 목적지가 같을 수 없다")
+        void rejectsSelfMove() {
             assertThrows(IllegalArgumentException.class,
-                    () -> new Route.Hop(CONVEYOR, PND, PND));
+                    () -> new Route.Move(CONVEYOR, PND, PND));
         }
 
         @Test
-        @DisplayName("홉이 없으면 경로가 아니다")
+        @DisplayName("구간이 없으면 경로가 아니다")
         void rejectsEmpty() {
             assertThrows(IllegalArgumentException.class, () -> Route.of(List.of()));
         }

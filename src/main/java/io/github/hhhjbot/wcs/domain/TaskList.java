@@ -102,6 +102,52 @@ public final class TaskList {
                 .count();
     }
 
+    /**
+     * 상태로 거른다.
+     */
+    public List<EquipmentTask> byStatus(TaskStatus status) {
+        Objects.requireNonNull(status, "상태는 필수입니다");
+        return tasks.stream()
+                .filter(task -> task.getStatus() == status)
+                .toList();
+    }
+
+    /**
+     * 이 자리에 지금 화물이 있거나 곧 도착하는 건수.
+     *
+     * <p>설비 정원이 "설비가 붙들고 있는 수"라면, 이것은 "자리에 놓여 있는 수"다.
+     * 둘은 다르다. 크레인이 P&amp;D에 내려놓고 작업이 끝나도 화물은 그 자리에 남아 있고,
+     * 컨베이어가 가져가야 비워진다.
+     *
+     * <p>세는 대상은 둘이다.
+     * <pre>
+     *   진행 중이며 목적지가 이 자리   →  곧 도착한다
+     *   완료됐고 목적지가 이 자리인데
+     *   이 자리에서 출발하는 다음 구간이 아직 완료되지 않음  →  아직 놓여 있다
+     * </pre>
+     *
+     * <p>슈트처럼 다음 구간이 없는 자리는 완료된 것이 계속 쌓인 것으로 센다.
+     * 사람이 치우거나 차량에 실어야 줄어들기 때문이다.
+     */
+    public int occupancyOf(LocationCode station) {
+        Objects.requireNonNull(station, "자리는 필수입니다");
+        return (int) tasks.stream()
+                .filter(task -> task.getTo().equals(station))
+                .filter(task -> task.isInFlight() || stillThere(task))
+                .count();
+    }
+
+    /** 도착은 끝났는데 아직 떠나지 않았는지. */
+    private boolean stillThere(EquipmentTask arrival) {
+        if (arrival.getStatus() != TaskStatus.COMPLETED) {
+            return false;
+        }
+        return tasks.stream()
+                .filter(task -> task.getTaskNo().sameOrder(arrival.getTaskNo()))
+                .filter(task -> task.getFrom().equals(arrival.getTo()))
+                .noneMatch(task -> task.getStatus() == TaskStatus.COMPLETED);
+    }
+
     /** 이 설비가 작업을 더 받을 수 있는지. */
     public boolean canAccept(Equipment equipment) {
         Objects.requireNonNull(equipment, "설비는 필수입니다");

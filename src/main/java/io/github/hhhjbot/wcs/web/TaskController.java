@@ -92,20 +92,20 @@ public class TaskController {
     }
 
     /** 경로의 응답 형태. */
-    public record RouteView(List<String> stops, List<LegView> legs) {
+    public record RouteView(List<String> stops, List<MoveView> moves) {
 
         static RouteView of(Route route) {
             return new RouteView(
                     route.stops().stream().map(stop -> stop.value()).toList(),
-                    route.hops().stream()
-                            .map(hop -> new LegView(hop.equipment().code(),
-                                    hop.equipment().capacity(),
-                                    hop.from().value(),
-                                    hop.to().value()))
+                    route.moves().stream()
+                            .map(move -> new MoveView(move.equipment().code(),
+                                    move.equipment().capacity(),
+                                    move.from().value(),
+                                    move.to().value()))
                             .toList());
         }
     }
 
     /** 구간 하나. */
-    public record LegView(String equipmentCode, int capacity, String from, String to) { }
+    public record MoveView(String equipmentCode, int capacity, String from, String to) { }
 }

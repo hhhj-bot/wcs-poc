@@ -34,6 +34,9 @@ import java.util.Objects;
  */
 public final class WarehouseLayout {
 
+    /** 슈트에 쌓아둘 수 있는 화물 수. 사람이 치우거나 차량에 실어야 줄어든다. */
+    private static final int CHUTE_CAPACITY = 20;
+
     private final Map<String, Equipment> equipments;
     private final LocationCode induction;
     private final String conveyorCode;
@@ -79,7 +82,7 @@ public final class WarehouseLayout {
      * 랙에서 슈트까지의 설비 경로.
      *
      * <p>담당 크레인은 출발 주소에서, 인계 지점은 그 통로에서 도출한다. (ADR-0010)
-     * 설비가 늘면 홉 목록에 항목이 하나 는다. (ADR-0008)
+     * 설비가 늘면 구간 목록에 항목이 하나 는다. (ADR-0008)
      *
      * @throws IllegalArgumentException 출발지가 랙이 아니거나 목적지가 슈트가 아닐 때,
      *                                  또는 담당 크레인이 등록되어 있지 않을 때
@@ -98,9 +101,9 @@ public final class WarehouseLayout {
         LocationCode pnd = source.pnd();
 
         return Route.of(List.of(
-                new Route.Hop(equipment(source.craneCode()), source, pnd),
-                new Route.Hop(equipment(conveyorCode), pnd, induction),
-                new Route.Hop(equipment(sorterCode), induction, chute)));
+                new Route.Move(equipment(source.craneCode()), source, pnd),
+                new Route.Move(equipment(conveyorCode), pnd, induction),
+                new Route.Move(equipment(sorterCode), induction, chute)));
     }
 
     /**
@@ -117,6 +120,24 @@ public final class WarehouseLayout {
                     "등록되지 않은 설비입니다: %s (등록된 설비 %s)".formatted(code, equipments.keySet()));
         }
         return found;
+    }
+
+    /**
+     * 이 자리에 동시에 놓일 수 있는 화물 수.
+     *
+     * <p>설비에 정원이 있듯 자리에도 정원이 있다. 다만 성격이 다르다.
+     * P&amp;D는 케이스 하나 길이라 1이고, 슈트는 쌓이는 저장 공간이라 여럿이다.
+     *
+     * <p>이 값이 설비 정원과 별도로 필요한 이유는, 크레인 작업이 끝나도
+     * 화물은 P&amp;D에 남아 있기 때문이다. 설비는 비었는데 자리는 차 있는 상태가 있다.
+     */
+    public int stationCapacity(LocationCode station) {
+        Objects.requireNonNull(station, "자리는 필수입니다");
+        return switch (station.kind()) {
+            case PND, INDUCTION -> 1;
+            case CHUTE -> CHUTE_CAPACITY;
+            case RACK -> Integer.MAX_VALUE;   // 출발지로만 쓰인다
+        };
     }
 
     /** 등록된 설비 전체. */

@@ -93,8 +93,8 @@ class WarehouseLayoutTest {
     class RouteBuilding {
 
         @Test
-        @DisplayName("랙에서 슈트까지 홉 셋으로 잇는다")
-        void buildsThreeHops() {
+        @DisplayName("랙에서 슈트까지 구간 셋으로 잇는다")
+        void buildsThreeMoves() {
             var route = layout().routeFor(LocationCode.of("A-01-03-02"), LocationCode.of("CHUTE-3"));
 
             assertEquals(3, route.size());
@@ -122,7 +122,7 @@ class WarehouseLayoutTest {
         }
 
         @Test
-        @DisplayName("설비 정원이 홉에 실려 온다")
+        @DisplayName("설비 정원이 구간에 실려 온다")
         void hopCarriesCapacity() {
             var route = layout().routeFor(LocationCode.of("A-01-03-02"), LocationCode.of("CHUTE-3"));
 

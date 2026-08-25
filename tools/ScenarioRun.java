@@ -30,8 +30,8 @@ public class ScenarioRun {
     private static final String PND       = "PND-A01";
     private static final String INDUCTION = "IND-01";
 
-    /** 홉 하나. 어느 설비가 어디서 어디로 옮기는가. */
-    private record Hop(Equipment equipment, String from, String to) { }
+    /** 구간 하나. 어느 설비가 어디서 어디로 옮기는가. */
+    private record Move(Equipment equipment, String from, String to) { }
 
     /** 지금까지 만들어진 모든 설비 작업. 진행 중 계수의 원천이다. */
     private static final List<EquipmentTask> ALL_TASKS = new ArrayList<>();
@@ -65,27 +65,27 @@ public class ScenarioRun {
      * 설비 경로. 담당 크레인은 출발 주소에서 도출하고, 순서는 조건문이 아니라 목록으로 둔다.
      * (ADR-0008 · ADR-0010)
      */
-    private static List<Hop> routeOf(OutboundOrder order) {
+    private static List<Move> routeOf(OutboundOrder order) {
         return List.of(
-                new Hop(CRANE,    order.source().value(), PND),
-                new Hop(CONVEYOR, PND,                    INDUCTION),
-                new Hop(SORTER,   INDUCTION,              order.plannedChute().value())
+                new Move(CRANE,    order.source().value(), PND),
+                new Move(CONVEYOR, PND,                    INDUCTION),
+                new Move(SORTER,   INDUCTION,              order.plannedChute().value())
         );
     }
 
     /** 경로를 순서대로 실행한다. 앞 작업이 완료된 뒤에 다음 작업을 만든다. */
-    private static List<EquipmentTask> run(OutboundOrder order, List<Hop> route) {
+    private static List<EquipmentTask> run(OutboundOrder order, List<Move> route) {
         title("실행");
         var done = new ArrayList<EquipmentTask>();
 
         for (int seq = 1; seq <= route.size(); seq++) {
-            Hop hop = route.get(seq - 1);
+            Move move = route.get(seq - 1);
 
-            System.out.printf("  %s   %s%n", order.taskNo(seq), hop.equipment().code());
+            System.out.printf("  %s   %s%n", order.taskNo(seq), move.equipment().code());
 
             var task = new EquipmentTask(
-                    order.taskNo(seq), hop.equipment().code(), order.loadId(),
-                    LocationCode.of(hop.from()), LocationCode.of(hop.to()));
+                    order.taskNo(seq), move.equipment().code(), order.loadId(),
+                    LocationCode.of(move.from()), LocationCode.of(move.to()));
             ALL_TASKS.add(task);
 
             step(task, TaskStatus.QUEUED,    "대기열 등록");
@@ -129,12 +129,12 @@ public class ScenarioRun {
         System.out.println();
     }
 
-    private static void printRoute(List<Hop> route) {
+    private static void printRoute(List<Move> route) {
         title("설비 경로");
         for (int seq = 1; seq <= route.size(); seq++) {
-            Hop hop = route.get(seq - 1);
+            Move move = route.get(seq - 1);
             System.out.printf("  %d   %-8s %-12s → %-10s  동시 처리 %d%n",
-                    seq, hop.equipment().code(), hop.from(), hop.to(), hop.equipment().capacity());
+                    seq, move.equipment().code(), move.from(), move.to(), move.equipment().capacity());
         }
         System.out.println();
     }
@@ -154,7 +154,7 @@ public class ScenarioRun {
     }
 
     /** 크레인 1건 · 컨베이어 8건이라는 차이가 흐름에 어떻게 나타나는지 보여준다. */
-    private static void printOccupancy(OutboundOrder first, List<Hop> route) {
+    private static void printOccupancy(OutboundOrder first, List<Move> route) {
         // 다른 지시 다섯 건이 컨베이어 구간에 올라가 있는 상태를 만든다
         for (int i = 2; i <= 6; i++) {
             var other = new OutboundOrder("TO-0000" + i, "CS-900" + i,

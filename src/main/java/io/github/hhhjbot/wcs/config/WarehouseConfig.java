@@ -1,8 +1,9 @@
 package io.github.hhhjbot.wcs.config;
 
 import io.github.hhhjbot.wcs.domain.Equipment;
-import io.github.hhhjbot.wcs.domain.EquipmentTask;
 import io.github.hhhjbot.wcs.domain.LocationCode;
+import io.github.hhhjbot.wcs.domain.OrderList;
+import io.github.hhhjbot.wcs.domain.OutboundFlow;
 import io.github.hhhjbot.wcs.domain.OutboundOrder;
 import io.github.hhhjbot.wcs.domain.TaskList;
 import io.github.hhhjbot.wcs.domain.WarehouseLayout;
@@ -60,33 +61,42 @@ public class WarehouseConfig {
         return new TaskList();
     }
 
+    /** 지시 보관소. 작업에서 컷오프와 목적 슈트를 찾아올 때 쓴다. */
+    @Bean
+    public OrderList orderList() {
+        return new OrderList();
+    }
+
     /**
-     * 뜰 때 샘플 지시 두 건을 작업으로 펼쳐 넣는다.
+     * 지시를 작업으로 펼치고 하달을 판단한다.
      *
-     * <p>조회 API를 확인하기 위한 임시 코드다.
-     * {@code OutboundFlow}가 생기면 이 부분이 그 호출로 바뀐다.
+     * <p>상태를 갖지 않으므로 싱글턴 빈 하나를 모두가 나눠 써도 안전하다.
+     * 진행 상황은 작업 목록에만 있다.
      */
     @Bean
-    public CommandLineRunner sampleData(WarehouseLayout layout, TaskList tasks) {
+    public OutboundFlow outboundFlow(WarehouseLayout layout, OrderList orders, TaskList tasks) {
+        return new OutboundFlow(layout, orders, tasks);
+    }
+
+    /**
+     * 뜰 때 샘플 지시 두 건을 받아 둔다.
+     *
+     * <p>하달은 하지 않는다. {@code POST /api/dispatch} 를 눌러야 한 주기가 돈다.
+     * 화면에서 한 단계씩 확인하기 위한 것이다.
+     */
+    @Bean
+    public CommandLineRunner sampleData(OutboundFlow flow) {
         return args -> {
             LocalDateTime cutoff = LocalDateTime.of(LocalDate.now(), LocalTime.of(16, 0));
 
-            expand(layout, tasks, new OutboundOrder(
+            flow.accept(new OutboundOrder(
                     "TO-00001", "CS-9001",
                     LocationCode.of("A-01-03-02"), LocationCode.of("CHUTE-3"), cutoff));
 
-            expand(layout, tasks, new OutboundOrder(
+            flow.accept(new OutboundOrder(
                     "TO-00002", "CS-9002",
-                    LocationCode.of("A-02-01-04"), LocationCode.of("CHUTE-1"),
+                    LocationCode.of("A-01-05-01"), LocationCode.of("CHUTE-3"),
                     cutoff.plusHours(1)));
         };
-    }
-
-    /** 지시 하나를 홉 수만큼의 설비 작업으로 펼친다. */
-    private static void expand(WarehouseLayout layout, TaskList tasks, OutboundOrder order) {
-        var route = layout.routeFor(order.source(), order.plannedChute());
-        for (int seq = 1; seq <= route.size(); seq++) {
-            tasks.add(EquipmentTask.of(order, seq, route.at(seq)));
-        }
     }
 }

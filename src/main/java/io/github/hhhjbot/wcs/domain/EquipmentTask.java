@@ -41,6 +41,7 @@ public class EquipmentTask {
 
     private TaskStatus status;
     private String reason;
+    private int retryCount;
 
     public EquipmentTask(TaskNo taskNo,
                          String equipmentCode,
@@ -61,21 +62,21 @@ public class EquipmentTask {
     }
 
     /**
-     * 지시의 {@code seq}번째 홉을 작업으로 만든다.
+     * 지시의 {@code seq}번째 구간을 작업으로 만든다.
      *
-     * <p>경로의 홉은 화물을 모르는 계획이고, 지시는 경로를 모른다.
+     * <p>경로의 구간은 화물을 모르는 계획이고, 지시는 경로를 모른다.
      * 둘을 합쳐 실행 단위를 만드는 자리가 여기다.
      */
-    public static EquipmentTask of(OutboundOrder order, int seq, Route.Hop hop) {
+    public static EquipmentTask of(OutboundOrder order, int seq, Route.Move move) {
         Objects.requireNonNull(order, "출고 지시는 필수입니다");
-        Objects.requireNonNull(hop, "홉은 필수입니다");
+        Objects.requireNonNull(move, "구간은 필수입니다");
 
         return new EquipmentTask(
                 order.taskNo(seq),
-                hop.equipment().code(),
+                move.equipment().code(),
                 order.loadId(),
-                hop.from(),
-                hop.to());
+                move.from(),
+                move.to());
     }
 
     // ------------------------------------------------------------------
@@ -93,6 +94,12 @@ public class EquipmentTask {
                     "허용되지 않은 상태 전이입니다: %s → %s (작업 %s)"
                             .formatted(status, next, taskNo));
         }
+        // 차단·실패에서 돌아오는 것만 재시도로 센다. 몇 번째 시도인지는 사실이고,
+        // 몇 번까지 허용할지는 정책이므로 한도는 여기서 갖지 않는다.
+        if (next == TaskStatus.CREATED && status.isRetryable()) {
+            this.retryCount++;
+        }
+
         this.status = next;
 
         // 정상 흐름으로 되돌아오면 이전 사유는 의미가 없다.
@@ -138,6 +145,9 @@ public class EquipmentTask {
         Objects.requireNonNull(other, "비교할 작업은 필수입니다");
         return taskNo.sameOrder(other.taskNo);
     }
+
+    /** 차단·실패 후 다시 시도한 횟수. 한도 판단은 하달 정책이 한다. */
+    public int getRetryCount() { return retryCount; }
 
     public TaskNo getTaskNo() { return taskNo; }
     public String getOrderNo() { return taskNo.orderNo(); }

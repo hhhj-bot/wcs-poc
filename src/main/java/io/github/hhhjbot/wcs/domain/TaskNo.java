@@ -6,9 +6,9 @@ import java.util.Objects;
  * 설비 작업 번호. 지시번호와 순번으로 이루어진다.
  *
  * <pre>
- *   TO-00001-1     지시 TO-00001 의 1번째 홉
- *   TO-00001-2                    2번째 홉
- *   TO-00001-3                    3번째 홉
+ *   TO-00001-1     지시 TO-00001 의 1번째 구간
+ *   TO-00001-2                    2번째 구간
+ *   TO-00001-3                    3번째 구간
  * </pre>
  *
  * <p>문자열 하나로 다루면 지시번호를 꺼낼 때마다 자르기가 필요하고,
@@ -28,7 +28,7 @@ import java.util.Objects;
  * {@link LocationCode}의 랙 주소는 두 자리 고정이다. 통로·열·단이 수십 단위라
  * 자릿수가 다르면 문자열 정렬이 물리적 순서와 어긋나기 때문이다.
  * 순번은 설비 종류 수만큼만 늘어나므로 한 자리로 충분하다.
- * 홉이 아홉을 넘는 구성이 생기면 그때 두 자리로 바꾼다.
+ * 구간이 아구간을 넘는 구성이 생기면 그때 두 자리로 바꾼다.
  */
 public record TaskNo(String orderNo, int seq) implements Comparable<TaskNo> {
 
@@ -86,7 +86,7 @@ public record TaskNo(String orderNo, int seq) implements Comparable<TaskNo> {
         return orderNo.equals(other.orderNo);
     }
 
-    /** 같은 지시의 다음 홉 번호. */
+    /** 같은 지시의 다음 구간 번호. */
     public TaskNo next() {
         return new TaskNo(orderNo, seq + 1);
     }

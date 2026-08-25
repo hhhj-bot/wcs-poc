@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 해당 책임을 갖는 객체가 도입되면 helper 호출을 그 객체로 대체한다.
  *
  * <pre>
- *   routeOf         설비 경로 구성          → Route / Hop
- *   taskOf          홉별 설비 작업 생성       → OutboundFlow
+ *   routeOf         설비 경로 구성          → Route / Move
+ *   taskOf          구간별 설비 작업 생성       → OutboundFlow
  *   inFlightCount   설비별 진행 중 작업 계수   → TaskList   (ADR-0009)
  *   완료 후 다음 작업 생성 순서               → OutboundFlow
  * </pre>
@@ -56,8 +56,8 @@ class OutboundScenarioTest {
     // helper
     // ------------------------------------------------------------------
 
-    /** 홉 하나. 어느 설비가 어디서 어디로 옮기는가. → Route / Hop */
-    private record Hop(String equipmentCode, String from, String to) { }
+    /** 구간 하나. 어느 설비가 어디서 어디로 옮기는가. → Route / Move */
+    private record Move(String equipmentCode, String from, String to) { }
 
     /**
      * 출발 로케이션과 목적 슈트로 설비 경로를 구성한다.
@@ -65,19 +65,19 @@ class OutboundScenarioTest {
      * <p>담당 크레인은 {@link LocationCode#craneCode()} 로 출발 주소에서 도출한다. (ADR-0010)
      * 경로는 조건문이 아니라 목록이므로 설비가 늘면 항목이 하나 는다. (ADR-0008)
      */
-    private static List<Hop> routeOf(LocationCode source, LocationCode chute) {
+    private static List<Move> routeOf(LocationCode source, LocationCode chute) {
         return List.of(
-                new Hop(source.craneCode(), source.value(), PND),
-                new Hop(CONVEYOR.code(),    PND,            INDUCTION),
-                new Hop(SORTER.code(),      INDUCTION,      chute.value())
+                new Move(source.craneCode(), source.value(), PND),
+                new Move(CONVEYOR.code(),    PND,            INDUCTION),
+                new Move(SORTER.code(),      INDUCTION,      chute.value())
         );
     }
 
-    /** 경로의 {@code seq} 번째 홉으로 설비 작업을 만든다. → OutboundFlow */
-    private static EquipmentTask taskOf(String orderNo, String loadId, List<Hop> route, int seq) {
-        Hop hop = route.get(seq - 1);
-        return new EquipmentTask(TaskNo.of(orderNo, seq), hop.equipmentCode(), loadId,
-                LocationCode.of(hop.from()), LocationCode.of(hop.to()));
+    /** 경로의 {@code seq} 번째 구간으로 설비 작업을 만든다. → OutboundFlow */
+    private static EquipmentTask taskOf(String orderNo, String loadId, List<Move> route, int seq) {
+        Move move = route.get(seq - 1);
+        return new EquipmentTask(TaskNo.of(orderNo, seq), move.equipmentCode(), loadId,
+                LocationCode.of(move.from()), LocationCode.of(move.to()));
     }
 
     /** 하달 → 수신확인 → 실행 → 완료. 설비 한 대와의 핸드셰이크 한 번에 해당한다. */
@@ -157,7 +157,7 @@ class OutboundScenarioTest {
 
         @Test
         @DisplayName("화물 번호는 설비를 옮겨 다녀도 바뀌지 않는다")
-        void loadIdSurvivesEveryHop() {
+        void loadIdSurvivesEveryLeg() {
             var route = routeOf(LocationCode.of("A-01-03-02"), LocationCode.of("CHUTE-3"));
 
             for (int seq = 1; seq <= 3; seq++) {

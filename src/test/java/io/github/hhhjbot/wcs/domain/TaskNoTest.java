@@ -111,13 +111,13 @@ class TaskNoTest {
             var conveyor = TaskNo.of("TO-00001", 2);
             var otherOrder = TaskNo.of("TO-00002", 1);
 
-            assertTrue(crane.sameOrder(conveyor), "홉은 달라도 같은 화물이다");
+            assertTrue(crane.sameOrder(conveyor), "구간은 달라도 같은 화물이다");
             assertFalse(crane.sameOrder(otherOrder));
         }
 
         @Test
-        @DisplayName("다음 홉의 번호를 얻는다")
-        void movesToNextHop() {
+        @DisplayName("다음 구간의 번호를 얻는다")
+        void movesToNextLeg() {
             assertEquals(TaskNo.of("TO-00001", 2), TaskNo.of("TO-00001", 1).next());
         }
     }
