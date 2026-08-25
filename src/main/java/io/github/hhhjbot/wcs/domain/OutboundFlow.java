@@ -40,15 +40,15 @@ public final class OutboundFlow {
     public static final int DEFAULT_MAX_RETRY = 3;
 
     private final WarehouseLayout layout;
-    private final OrderList orders;
+    private final OrderRepository orders;
     private final TaskList tasks;
     private final int maxRetry;
 
-    public OutboundFlow(WarehouseLayout layout, OrderList orders, TaskList tasks) {
+    public OutboundFlow(WarehouseLayout layout, OrderRepository orders, TaskList tasks) {
         this(layout, orders, tasks, DEFAULT_MAX_RETRY);
     }
 
-    public OutboundFlow(WarehouseLayout layout, OrderList orders, TaskList tasks, int maxRetry) {
+    public OutboundFlow(WarehouseLayout layout, OrderRepository orders, TaskList tasks, int maxRetry) {
         this.layout = Objects.requireNonNull(layout, "창고 구성은 필수입니다");
         this.orders = Objects.requireNonNull(orders, "지시 목록은 필수입니다");
         this.tasks = Objects.requireNonNull(tasks, "작업 목록은 필수입니다");

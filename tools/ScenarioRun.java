@@ -1,7 +1,7 @@
 import io.github.hhhjbot.wcs.domain.Equipment;
 import io.github.hhhjbot.wcs.domain.EquipmentTask;
 import io.github.hhhjbot.wcs.domain.LocationCode;
-import io.github.hhhjbot.wcs.domain.OrderList;
+import io.github.hhhjbot.wcs.domain.InMemoryOrderRepository;
 import io.github.hhhjbot.wcs.domain.OutboundFlow;
 import io.github.hhhjbot.wcs.domain.OutboundOrder;
 import io.github.hhhjbot.wcs.domain.Route;
@@ -67,7 +67,7 @@ public class ScenarioRun {
                         new Equipment("SRT-01", 24)),  // 캐리어 24개
                 LocationCode.of("IND-01"), "CV-01", "SRT-01");
         tasks = new TaskList();
-        flow = new OutboundFlow(layout, new OrderList(), tasks);
+        flow = new OutboundFlow(layout, new InMemoryOrderRepository(), tasks);
     }
 
     // ------------------------------------------------------------------

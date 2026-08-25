@@ -51,7 +51,7 @@ class OutboundScenarioTest {
                         new Equipment("SRT-01", 24)),  // 캐리어 24개
                 LocationCode.of("IND-01"), "CV-01", "SRT-01");
         tasks = new TaskList();
-        flow = new OutboundFlow(layout, new OrderList(), tasks);
+        flow = new OutboundFlow(layout, new InMemoryOrderRepository(), tasks);
     }
 
     private static OutboundOrder order(String orderNo, String loadId,

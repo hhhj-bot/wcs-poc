@@ -25,7 +25,7 @@ class OutboundFlowTest {
     private static final LocalDateTime LATE = LocalDateTime.of(2026, 8, 28, 18, 0);
 
     private WarehouseLayout layout;
-    private OrderList orders;
+    private OrderRepository orders;
     private TaskList tasks;
     private OutboundFlow flow;
 
@@ -37,7 +37,7 @@ class OutboundFlowTest {
                         new Equipment("CV-01", 8),
                         new Equipment("SRT-01", 24)),
                 LocationCode.of("IND-01"), "CV-01", "SRT-01");
-        orders = new OrderList();
+        orders = new InMemoryOrderRepository();
         tasks = new TaskList();
         flow = new OutboundFlow(layout, orders, tasks);
     }
