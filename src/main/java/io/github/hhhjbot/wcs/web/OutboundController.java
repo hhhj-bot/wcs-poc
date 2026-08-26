@@ -22,8 +22,8 @@ import java.util.List;
  *   POST /api/dispatch   한 주기 돌려 조건이 갖춰진 작업을 하달한다
  * </pre>
  *
- * <p>하달을 버튼으로 둔 이유는 한 단계씩 확인하기 위해서다.
- * 실제 운영에서는 {@code @Scheduled}가 스캔 주기마다 이것을 부른다.
+ * <p>하달을 버튼으로도 둔 이유는 한 단계씩 확인하기 위해서다.
+ * 평소에는 {@code EquipmentPoller}가 주기마다 같은 것을 부른다.
  */
 @RestController
 @RequestMapping("/api")
@@ -35,7 +35,7 @@ public class OutboundController {
         this.flow = flow;
     }
 
-    /** 출고 지시를 받는다. 지시 하나가 홉 수만큼의 작업이 된다. */
+    /** 출고 지시를 받는다. 지시 하나가 구간 수만큼의 작업이 된다. */
     @PostMapping("/orders")
     public AcceptResult accept(@RequestBody OrderRequest request) {
         List<EquipmentTask> created = flow.accept(request.toOrder());
@@ -52,8 +52,10 @@ public class OutboundController {
         return new DispatchView(
                 result.dispatchedCount(),
                 result.blockedCount(),
+                result.failedCount(),
                 result.dispatched().stream().map(DispatchedView::of).toList(),
-                result.blocked().stream().map(BlockedView::of).toList());
+                result.blocked().stream().map(BlockedView::of).toList(),
+                result.failed().stream().map(BlockedView::of).toList());
     }
 
     // ------------------------------------------------------------------
@@ -90,9 +92,10 @@ public class OutboundController {
     public record AcceptResult(String orderNo, int taskCount, List<String> taskNos) { }
 
     /** 한 주기의 결과. */
-    public record DispatchView(int dispatched, int blocked,
+    public record DispatchView(int dispatched, int blocked, int failed,
                                List<DispatchedView> dispatchedTasks,
-                               List<BlockedView> blockedTasks) { }
+                               List<BlockedView> blockedTasks,
+                               List<BlockedView> failedTasks) { }
 
     /** 하달된 작업. */
     public record DispatchedView(String taskNo, String equipmentCode, String from, String to) {

@@ -10,6 +10,7 @@ import io.github.hhhjbot.wcs.domain.WarehouseLayout;
 
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -89,6 +90,28 @@ public class TaskQueryService {
     }
 
     /**
+     * 자리별 점유 현황.
+     *
+     * <p>설비 정원과 자리 정원은 다르다. 크레인 작업이 끝나도 화물은 P&amp;D에 남아 있으므로,
+     * 설비는 비었는데 자리가 차서 하달이 막히는 상태가 있다. 화면에서 그 이유를 보이게 하려는 것이다.
+     *
+     * <p>자리 목록을 창고 구성이 아니라 작업의 목적지에서 뽑는다. 지금 쓰이고 있는 자리만
+     * 보여주면 되고, 쓰이지 않는 자리를 나열해 봐야 화면만 길어지기 때문이다.
+     */
+    public List<StationLoad> stationLoads() {
+        return tasks.all().stream()
+                .map(EquipmentTask::getTo)
+                .distinct()
+                .sorted(Comparator.comparing(LocationCode::value))
+                .map(station -> new StationLoad(
+                        station.value(),
+                        station.kind().name(),
+                        tasks.occupancyOf(station),
+                        layout.stationCapacity(station)))
+                .toList();
+    }
+
+    /**
      * 출발 랙에서 목적 슈트까지의 경로.
      *
      * @throws IllegalArgumentException 자리 형식이 맞지 않거나 담당 설비가 없을 때
@@ -100,4 +123,7 @@ public class TaskQueryService {
     /** 설비 한 대의 적재 현황. */
     public record EquipmentLoad(String code, int capacity, int inFlight,
                                 int available, boolean canAccept) { }
+
+    /** 자리 하나의 점유 현황. */
+    public record StationLoad(String code, String kind, int occupancy, int capacity) { }
 }

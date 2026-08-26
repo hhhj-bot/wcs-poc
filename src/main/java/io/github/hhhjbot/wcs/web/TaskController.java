@@ -21,6 +21,7 @@ import java.util.List;
  *   GET /api/tasks?order=TO-00001                    지시별
  *   GET /api/tasks/TO-00001-2                        한 건
  *   GET /api/equipments                              설비별 적재 현황
+ *   GET /api/stations                                자리별 점유 현황
  *   GET /api/routes?source=A-01-03-02&chute=CHUTE-3  경로 조회
  * </pre>
  *
@@ -59,6 +60,11 @@ public class TaskController {
     @GetMapping("/equipments")
     public List<TaskQueryService.EquipmentLoad> equipments() {
         return service.equipmentLoads();
+    }
+
+    @GetMapping("/stations")
+    public List<TaskQueryService.StationLoad> stations() {
+        return service.stationLoads();
     }
 
     @GetMapping("/routes")
