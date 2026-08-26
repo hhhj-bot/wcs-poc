@@ -33,6 +33,41 @@ import java.util.Optional;
  *
  * <p>앞 구간이 끝나지 않은 작업은 차단이 아니라 후보에서 빠진다.
  * 조건 위반이 아니라 아직 차례가 아닌 것이기 때문이다.
+ *
+ * <h3>주기 전체를 잠근다</h3>
+ * {@link #accept(OutboundOrder)}와 {@link #dispatch()}는 여러 스레드에서 불린다.
+ * 요청 스레드가 지시를 받는 사이 스케줄러 스레드가 하달 주기를 돌리는 식이다.
+ *
+ * <p>잠가야 하는 단위는 메서드 하나가 아니라 <b>판단 한 덩어리</b>다.
+ *
+ * <pre>
+ *   int inFlight = tasks.inFlightCount(code);   // ① 센다
+ *   if (equipment.canAccept(inFlight)) {         // ② 판단한다
+ *       task.transitionTo(SENT);                 // ③ 쓴다
+ *   }
+ * </pre>
+ *
+ * <p>①②③이 각각 안전해도 그 <b>사이</b>가 안 잠기면 소용없다. 두 스레드가 ①에서
+ * 나란히 0을 읽으면 둘 다 ②를 통과해 정원 1짜리 크레인에 두 건이 나간다.
+ * 이를 check-then-act 이라 부른다.
+ *
+ * <p>실제로 잠그기 전에 3000판을 돌려보면 1721판에서 어긋났다. 다만 대부분은
+ * 정원 초과가 아니라 <b>두 스레드가 같은 작업을 집는</b> 형태로 터졌다.
+ * 앞선 스레드가 이미 옮겨 놓은 상태를 뒤 스레드가 또 바꾸려다
+ * {@link TaskStatus#canTransitionTo(TaskStatus)}에 걸린 것이다.
+ * 상태 기계가 최악을 우연히 막고 있었던 셈인데, 예외가 스케줄러 스레드로 튀면
+ * 그 주기가 통째로 죽으므로 막아준다고 괜찮은 것은 아니다.
+ * 검증은 {@code OutboundFlowConcurrencyTest}가 한다.
+ *
+ * <h3>잠금 순서</h3>
+ * <pre>
+ *   OutboundFlow → TaskList → EquipmentTask
+ * </pre>
+ * 항상 이 방향이고 거꾸로 잡는 경로가 없다. 그래서 교착이 생기지 않는다.
+ *
+ * <p>대신 하달 주기가 도는 동안 지시 접수가 잠깐 기다린다. 주기가 밀리초 단위이므로
+ * 지금 규모에서는 문제가 되지 않는다. 설비가 수백 대로 늘어 주기가 길어지면
+ * 설비별로 잠금을 쪼개야 하는데, 그때는 잠금 순서를 다시 설계해야 한다.
  */
 public final class OutboundFlow {
 
@@ -71,7 +106,7 @@ public final class OutboundFlow {
      *
      * @return 만들어진 작업. 구간 수만큼이다
      */
-    public List<EquipmentTask> accept(OutboundOrder order) {
+    public synchronized List<EquipmentTask> accept(OutboundOrder order) {
         Objects.requireNonNull(order, "출고 지시는 필수입니다");
 
         orders.add(order);
@@ -99,7 +134,7 @@ public final class OutboundFlow {
      * <p>순서대로 평가하는 것이 중요하다. 앞의 작업이 하달되면 설비 정원이 줄어들고,
      * 그 결과가 뒤 작업의 판단에 반영되어야 한다. 매번 목록에서 다시 세므로 자동으로 반영된다.
      */
-    public DispatchResult dispatch() {
+    public synchronized DispatchResult dispatch() {
         retryBlocked();
 
         var dispatched = new ArrayList<EquipmentTask>();

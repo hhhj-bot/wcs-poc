@@ -30,6 +30,22 @@ import java.util.Objects;
  * <h3>운반 대상의 이름</h3>
  * 운반 대상을 {@code loadId}로 부른다. 케이스·파렛트·토트 중 무엇이 오더라도
  * 이름을 바꾸지 않기 위한 것이다. (ADR-0008)
+ *
+ * <h3>여러 스레드가 이 객체를 본다</h3>
+ * 상태를 바꾸는 스레드와 읽는 스레드가 다를 수 있다. 요청 스레드가 하달하고
+ * 스케줄러 스레드가 설비 응답을 반영하는 식이다.
+ *
+ * <p>바뀌는 필드({@code status}, {@code reason}, {@code retryCount})를 만지는 메서드는
+ * 전부 {@code synchronized}로 묶는다. 한 스레드가 쓴 값을 다른 스레드가 보게 하려면
+ * 같은 잠금을 거쳐야 하기 때문이다. 잠그지 않으면 코어마다 있는 캐시 때문에
+ * <b>분명히 먼저 쓴 값이 나중에 읽는 쪽에 안 보일 수</b> 있다. 이를 가시성 문제라 한다.
+ *
+ * <p>다만 이 잠금은 <b>이 객체 하나의 일관성</b>만 지킨다.
+ * "설비에 몇 건 올라가 있는지 세고 → 여유가 있으면 하달"처럼 여러 객체에 걸친 판단은
+ * 여기서 못 지킨다. 그것은 {@link OutboundFlow}가 주기 전체를 잠가서 지킨다.
+ *
+ * <p>잠금 순서는 항상 {@code OutboundFlow} → {@code EquipmentTask} 한 방향이다.
+ * 반대로 잡는 경로가 없으므로 교착이 생기지 않는다.
  */
 public class EquipmentTask {
 
@@ -88,7 +104,7 @@ public class EquipmentTask {
      *
      * @throws IllegalStateException 허용되지 않은 전이일 때
      */
-    public void transitionTo(TaskStatus next) {
+    public synchronized void transitionTo(TaskStatus next) {
         if (!status.canTransitionTo(next)) {
             throw new IllegalStateException(
                     "허용되지 않은 상태 전이입니다: %s → %s (작업 %s)"
@@ -109,13 +125,13 @@ public class EquipmentTask {
     }
 
     /** 인터록 위반으로 하달을 차단한다. 사유를 남겨 조치할 수 있게 한다. */
-    public void block(String reason) {
+    public synchronized void block(String reason) {
         transitionTo(TaskStatus.BLOCKED);
         this.reason = require(reason, "사유");
     }
 
     /** 설비 이상 또는 시한 초과로 중단한다. */
-    public void fail(String reason) {
+    public synchronized void fail(String reason) {
         transitionTo(TaskStatus.FAILED);
         this.reason = require(reason, "사유");
     }
@@ -131,12 +147,12 @@ public class EquipmentTask {
      * 다르므로, 진행 중인 작업들을 세어 {@link Equipment#canAccept(int)}에 넘겨야 한다.
      * 이 메서드는 그 계수의 대상인지만 알려준다.
      */
-    public boolean isInFlight() {
+    public synchronized boolean isInFlight() {
         return status.isInFlight();
     }
 
     /** 조건 해소 후 다시 시도할 수 있는 상태인지. */
-    public boolean isRetryable() {
+    public synchronized boolean isRetryable() {
         return status.isRetryable();
     }
 
@@ -147,7 +163,7 @@ public class EquipmentTask {
     }
 
     /** 차단·실패 후 다시 시도한 횟수. 한도 판단은 하달 정책이 한다. */
-    public int getRetryCount() { return retryCount; }
+    public synchronized int getRetryCount() { return retryCount; }
 
     public TaskNo getTaskNo() { return taskNo; }
     public String getOrderNo() { return taskNo.orderNo(); }
@@ -155,11 +171,11 @@ public class EquipmentTask {
     public String getLoadId() { return loadId; }
     public LocationCode getFrom() { return from; }
     public LocationCode getTo() { return to; }
-    public TaskStatus getStatus() { return status; }
-    public String getReason() { return reason; }
+    public synchronized TaskStatus getStatus() { return status; }
+    public synchronized String getReason() { return reason; }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
         return "%s [%s] %s: %s → %s (%s)"
                 .formatted(taskNo, equipmentCode, loadId, from, to, status);
     }

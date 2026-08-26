@@ -1,10 +1,10 @@
 package io.github.hhhjbot.wcs.domain;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 지금까지 만들어진 설비 작업 전체.
@@ -27,17 +27,45 @@ import java.util.Optional;
  *
  * <p>3단계에서 저장소로 바뀔 자리다. 그때 이름이 {@code TaskRepository}가 될 수 있으나,
  * 지금은 메모리 위의 목록이라 그대로 부른다.
+ *
+ * <h3>여러 스레드가 동시에 본다</h3>
+ * 이 목록을 만지는 스레드는 하나가 아니다.
+ *
+ * <pre>
+ *   Tomcat 요청 스레드    POST /api/orders, POST /api/dispatch
+ *   스케줄러 스레드       설비 폴링 주기
+ * </pre>
+ *
+ * <p>그래서 {@link CopyOnWriteArrayList}를 쓴다. 읽을 때 잠그지 않고 그 순간의 사본을
+ * 훑으므로, 다른 스레드가 작업을 추가해도 순회 도중 {@code ConcurrentModificationException}이
+ * 나지 않는다. 쓸 때마다 배열을 통째로 복사하는 대가를 치르지만, 작업은 수십 건 규모이고
+ * 추가는 지시를 받을 때만 일어나는 반면 조회는 주기마다 수차례 일어나므로 이쪽이 맞다.
+ *
+ * <h3>여기까지만 책임진다</h3>
+ * 이 클래스가 지키는 것은 <b>목록의 구조</b>뿐이다. 다음 둘은 여기서 못 지킨다.
+ *
+ * <pre>
+ *   작업 한 건의 필드 일관성   →  EquipmentTask 가 자기 잠금으로 지킨다
+ *   "세고 → 판단하고 → 쓰기"   →  OutboundFlow 가 주기 전체를 잠근다
+ * </pre>
+ *
+ * <p>{@link #inFlightCount(String)}이 안전해도, 그 값을 받아 판단하고 쓰는 사이에
+ * 다른 스레드가 끼어들면 결과는 어긋난다. 자료구조를 바꾸는 것으로는 그 문제가 풀리지 않는다.
  */
 public final class TaskList {
 
-    private final List<EquipmentTask> tasks = new ArrayList<>();
+    private final List<EquipmentTask> tasks = new CopyOnWriteArrayList<>();
 
     /**
      * 작업을 목록에 넣는다.
      *
+     * <p>중복 검사와 추가 사이에 다른 스레드가 같은 번호를 넣지 못하도록 잠근다.
+     * {@code CopyOnWriteArrayList} 는 추가 자체는 안전하게 해 주지만
+     * "없는지 보고 → 넣기" 두 단계가 하나로 묶이지는 않는다.
+     *
      * @throws IllegalArgumentException 같은 작업 번호가 이미 있을 때
      */
-    public void add(EquipmentTask task) {
+    public synchronized void add(EquipmentTask task) {
         Objects.requireNonNull(task, "작업은 필수입니다");
 
         if (find(task.getTaskNo()).isPresent()) {
