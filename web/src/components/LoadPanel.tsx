@@ -1,5 +1,7 @@
 import type { EquipmentLoad, StationLoad } from '../types'
 
+import { EquipmentCard } from './EquipmentCard'
+
 /**
  * 설비 정원과 자리 정원을 나란히 보여준다.
  *
@@ -31,17 +33,11 @@ export function LoadPanel({
     <div className="loads">
       <section>
         <h3>
-          설비 <span className="hint">진행 중 / 정원</span>
+          설비 <span className="hint">WCS 계수 · STS 태그</span>
         </h3>
-        <ul>
+        <ul className="eq-list">
           {equipments.map((eq) => (
-            <li key={eq.code}>
-              <span className="mono code">{eq.code}</span>
-              <Meter used={eq.inFlight} capacity={eq.capacity} />
-              <span className="mono count">
-                {eq.inFlight}/{eq.capacity}
-              </span>
-            </li>
+            <EquipmentCard key={eq.code} load={eq} />
           ))}
         </ul>
       </section>

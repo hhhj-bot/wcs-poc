@@ -390,6 +390,67 @@ button:disabled {
   color: var(--ok);
 }
 
+/* ---- equipment card ---- */
+
+.eq-list {
+  gap: 0.6rem !important;
+}
+
+.eq {
+  display: flex !important;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.65rem 0.75rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--ground);
+}
+
+.eq-head {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tags {
+  margin: 0.1rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3rem 0.5rem;
+}
+
+.tags div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.tags dt {
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+
+.tags dd {
+  margin: 0;
+  font-family: var(--f-mono);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alarm {
+  margin: 0;
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  color: var(--stop);
+}
+
 /* ---- table ---- */
 
 /* 지시를 넣을수록 세로로 늘어나면 한눈에 안 들어온다.
@@ -480,7 +541,7 @@ tr.live td {
 
 /* 자리 목록도 슈트가 늘면 길어진다. */
 .loads ul {
-  max-height: 13rem;
+  max-height: 22rem;
   overflow-y: auto;
 }
 

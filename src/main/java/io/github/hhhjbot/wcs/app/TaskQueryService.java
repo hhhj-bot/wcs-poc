@@ -1,6 +1,8 @@
 package io.github.hhhjbot.wcs.app;
 
 import io.github.hhhjbot.wcs.domain.Equipment;
+import io.github.hhhjbot.wcs.domain.EquipmentGateway;
+import io.github.hhhjbot.wcs.domain.EquipmentStatus;
 import io.github.hhhjbot.wcs.domain.EquipmentTask;
 import io.github.hhhjbot.wcs.domain.LocationCode;
 import io.github.hhhjbot.wcs.domain.Route;
@@ -29,6 +31,7 @@ public class TaskQueryService {
 
     private final TaskList tasks;
     private final WarehouseLayout layout;
+    private final EquipmentGateway gateway;
 
     /**
      * 생성자 주입.
@@ -37,9 +40,10 @@ public class TaskQueryService {
      * 필드 주입 대신 생성자를 쓰는 이유는 두 가지다 —
      * 필드를 {@code final} 로 둘 수 있고, 스프링 없이도 {@code new} 로 만들어 테스트할 수 있다.
      */
-    public TaskQueryService(TaskList tasks, WarehouseLayout layout) {
+    public TaskQueryService(TaskList tasks, WarehouseLayout layout, EquipmentGateway gateway) {
         this.tasks = tasks;
         this.layout = layout;
+        this.gateway = gateway;
     }
 
     /** 등록된 작업 전체. */
@@ -86,7 +90,8 @@ public class TaskQueryService {
                 equipment.capacity(),
                 inFlight,
                 equipment.availableSlots(inFlight),
-                equipment.canAccept(inFlight));
+                equipment.canAccept(inFlight),
+                gateway.readStatus(equipment.code()));
     }
 
     /**
@@ -120,9 +125,16 @@ public class TaskQueryService {
         return layout.routeFor(LocationCode.of(source), LocationCode.of(chute));
     }
 
-    /** 설비 한 대의 적재 현황. */
+    /**
+     * 설비 한 대의 현황.
+     *
+     * <p>앞의 넷은 <b>WCS가 세어 낸 값</b>이고 {@code status}는
+     * <b>설비가 내놓은 값</b>이다. 출처가 다르므로 어긋날 수 있고, 어긋나면 그것이 신호다.
+     * 예를 들어 {@code inFlight}가 1인데 설비는 {@code IDLE}이면 명령이 유실된 것이다.
+     */
     public record EquipmentLoad(String code, int capacity, int inFlight,
-                                int available, boolean canAccept) { }
+                                int available, boolean canAccept,
+                                EquipmentStatus status) { }
 
     /** 자리 하나의 점유 현황. */
     public record StationLoad(String code, String kind, int occupancy, int capacity) { }

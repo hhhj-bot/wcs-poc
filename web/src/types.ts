@@ -29,13 +29,35 @@ export interface Task {
   inFlight: boolean
 }
 
-/** GET /api/equipments — 설비가 지금 몇 건을 붙들고 있는가 */
+/** 설비가 내놓는 상태 블록. 실물 PLC 의 STS 태그에 해당한다 */
+export interface EquipmentStatus {
+  equipmentCode: string
+  mode: 'STOPPED' | 'AUTO' | 'MANUAL' | 'REMOTE'
+  motion: 'IDLE' | 'TRAVELING' | 'HOISTING' | 'FORK_OUT' | 'FORK_IN' | 'DONE' | 'FAULT'
+  /** 설비가 지금 물고 있는 명령. 에코백 */
+  commandId: string | null
+  /** 주행 위치 mm */
+  positionX: number
+  /** 승강 위치 mm */
+  positionY: number
+  loaded: boolean
+  alarmCode: number
+  cycleCount: number
+}
+
+/**
+ * GET /api/equipments
+ *
+ * 앞의 넷은 WCS 가 세어 낸 값이고 status 는 설비가 내놓은 값이다.
+ * 출처가 다르므로 어긋날 수 있고, 어긋나면 그것이 신호다.
+ */
 export interface EquipmentLoad {
   code: string
   capacity: number
   inFlight: number
   available: number
   canAccept: boolean
+  status: EquipmentStatus
 }
 
 /** GET /api/stations — 자리에 화물이 몇 개 놓여 있는가 */

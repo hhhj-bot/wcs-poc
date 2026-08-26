@@ -22,9 +22,10 @@ import java.util.Optional;
  *
  * <h3>세 가지 일</h3>
  * <pre>
- *   send(task)        CMD 태그에 값을 쓰고 TRIGGER 를 올린다
- *   read(taskNo)      STS 태그를 읽는다. 아직 응답이 없으면 비어 있다
- *   release(taskNo)   TRIGGER 를 내린다. 핸드셰이크를 닫는다
+ *   send(task)              CMD 태그에 값을 쓰고 TRIGGER 를 올린다
+ *   read(taskNo)            STS 태그에서 이 명령의 진행만 뽑아 읽는다
+ *   readStatus(code)        STS 태그 블록을 통째로 읽는다
+ *   release(taskNo)         TRIGGER 를 내린다. 핸드셰이크를 닫는다
  * </pre>
  *
  * <p>{@code send}가 즉시 완료를 뜻하지 않는다는 점이 중요하다. 명령을 적어 놓았을 뿐이고,
@@ -52,6 +53,19 @@ public interface EquipmentGateway {
     Optional<EquipmentSignal> read(TaskNo taskNo);
 
     /**
+     * 설비 상태 블록을 통째로 읽는다.
+     *
+     * <p>{@link #read(TaskNo)}가 "이 명령이 어디까지 갔나"라면 이쪽은
+     * "설비가 지금 어떤 상태인가"다. 실물 PLC는 태그 블록을 통째로 내주므로
+     * 하달 판단에 안 쓰는 값(위치·적재·사이클 카운트)도 같이 딸려 온다.
+     * 나누는 것은 읽은 뒤의 일이다.
+     *
+     * <p>등록되지 않은 설비 코드면 대기 상태를 돌려준다. 조회 때문에 예외가 나면
+     * 화면 한 칸이 비는 대신 화면 전체가 죽는다.
+     */
+    EquipmentStatus readStatus(String equipmentCode);
+
+    /**
      * 핸드셰이크를 닫는다. 완료나 이상으로 끝난 뒤 트리거를 내린다.
      *
      * <p>이걸 빠뜨리면 설비 쪽 명령 슬롯이 물린 채 남아 다음 명령을 못 받는다.
@@ -74,6 +88,11 @@ public interface EquipmentGateway {
         @Override
         public Optional<EquipmentSignal> read(TaskNo taskNo) {
             return Optional.empty();
+        }
+
+        @Override
+        public EquipmentStatus readStatus(String equipmentCode) {
+            return EquipmentStatus.idle(equipmentCode);
         }
 
         @Override
