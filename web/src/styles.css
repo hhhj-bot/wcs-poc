@@ -1,0 +1,399 @@
+/*
+ * 색과 서체는 docs/코드-읽기-지도.html 과 맞춘다.
+ * 문서와 화면이 같은 언어를 쓰면 둘을 오갈 때 다시 읽지 않아도 된다.
+ */
+
+:root {
+  --ground: #f5f7f9;
+  --surface: #ffffff;
+  --ink: #171c22;
+  --ink-muted: #5c6875;
+  --ink-faint: #8a95a1;
+  --line: #dce2e8;
+  --line-strong: #b9c3cd;
+  --signal: #a66a12;
+  --signal-soft: #fbf1df;
+  --ok: #2c6e49;
+  --ok-soft: #e6f2ea;
+  --stop: #a8342a;
+  --stop-soft: #fbebe9;
+  --idle-soft: #eef1f5;
+
+  --f-sans: 'IBM Plex Sans KR', ui-sans-serif, system-ui, 'Malgun Gothic', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ground: #101419;
+    --surface: #161b22;
+    --ink: #e3e8ed;
+    --ink-muted: #97a3b0;
+    --ink-faint: #6e7a88;
+    --line: #242c35;
+    --line-strong: #38424e;
+    --signal: #e0a63c;
+    --signal-soft: #2a2010;
+    --ok: #5fb88a;
+    --ok-soft: #12251c;
+    --stop: #e0776c;
+    --stop-soft: #2a1614;
+    --idle-soft: #1c222a;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--f-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ---- header ---- */
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1.1rem;
+}
+
+.eyebrow {
+  margin: 0;
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+h1 {
+  margin: 0.15rem 0 0;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ---- layout ---- */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 60rem) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+aside,
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+/* ---- panels ---- */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1.15rem 1.25rem 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+}
+
+.hint {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--ink-faint);
+}
+
+.hint.block {
+  margin: 0.15rem 0 0;
+  line-height: 1.55;
+}
+
+/* ---- form ---- */
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+
+input {
+  font-family: var(--f-mono);
+  font-size: 0.85rem;
+  padding: 0.42rem 0.6rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--ground);
+  color: var(--ink);
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+}
+
+button {
+  margin-top: 0.3rem;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: 1px solid var(--signal);
+  border-radius: 6px;
+  background: var(--signal-soft);
+  color: var(--signal);
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--signal);
+  color: var(--surface);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--stop);
+}
+
+/* ---- badges ---- */
+
+.tally {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.badge {
+  display: inline-block;
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.badge.wait {
+  background: var(--idle-soft);
+  color: var(--ink-muted);
+  border-color: var(--line-strong);
+}
+.badge.run {
+  background: var(--signal-soft);
+  color: var(--signal);
+  border-color: var(--signal);
+}
+.badge.done {
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.badge.hold {
+  background: var(--stop-soft);
+  color: var(--stop);
+  border-color: var(--line-strong);
+}
+.badge.stop {
+  background: var(--stop-soft);
+  color: var(--stop);
+  border-color: var(--stop);
+}
+
+/* ---- loads ---- */
+
+.loads {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1.25rem;
+}
+
+.loads section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1.15rem 1.25rem 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.loads ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.loads li {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr 3rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.code {
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+.count {
+  font-size: 0.76rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.meter {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--idle-soft);
+  overflow: hidden;
+}
+
+.meter-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.25s ease;
+}
+
+.meter-bar.idle {
+  background: transparent;
+}
+.meter-bar.busy {
+  background: var(--signal);
+}
+.meter-bar.full {
+  background: var(--stop);
+}
+
+/* ---- table ---- */
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+
+th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 0 0.6rem 0.45rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+td {
+  padding: 0.42rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+tr.live td {
+  background: var(--signal-soft);
+}
+
+.mono {
+  font-family: var(--f-mono);
+  font-size: 0.79rem;
+}
+
+.dim {
+  color: var(--ink-faint);
+}
+
+.reason {
+  font-size: 0.76rem;
+  color: var(--ink-muted);
+  white-space: normal;
+  min-width: 14rem;
+}
+
+.empty {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 0.87rem;
+}
+
+.empty.small {
+  font-size: 0.8rem;
+}
+
+/* ---- cycle result ---- */
+
+.cycle-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.7rem;
+}
+
+.why {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
+.why.stop-text {
+  color: var(--stop);
+}
