@@ -110,8 +110,8 @@ public class EquipmentTask {
                     "허용되지 않은 상태 전이입니다: %s → %s (작업 %s)"
                             .formatted(status, next, taskNo));
         }
-        // 차단·실패에서 돌아오는 것만 재시도로 센다. 몇 번째 시도인지는 사실이고,
-        // 몇 번까지 허용할지는 정책이므로 한도는 여기서 갖지 않는다.
+        // 차단·실패에서 돌아온 횟수를 센다. 몇 번 기다렸는지는 사실이고,
+        // 그 값으로 무엇을 할지는 정책이므로 여기서 판단하지 않는다.
         if (next == TaskStatus.CREATED && status.isRetryable()) {
             this.retryCount++;
         }
@@ -162,7 +162,13 @@ public class EquipmentTask {
         return taskNo.sameOrder(other.taskNo);
     }
 
-    /** 차단·실패 후 다시 시도한 횟수. 한도 판단은 하달 정책이 한다. */
+    /**
+     * 차단·실패 후 다시 후보로 돌아온 횟수.
+     *
+     * <p>대기가 길어지는 것을 사람이 알아채라고 세는 값이지, 멈추는 기준이 아니다.
+     * 인터록 대기는 이상이 아니라 정상 대기이므로 횟수로 끊으면
+     * 정상 물량이 영영 나가지 않는다. ({@link OutboundFlow#dispatch()} 참고)
+     */
     public synchronized int getRetryCount() { return retryCount; }
 
     public TaskNo getTaskNo() { return taskNo; }

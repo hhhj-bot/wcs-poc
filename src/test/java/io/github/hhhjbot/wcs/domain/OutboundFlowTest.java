@@ -230,8 +230,8 @@ class OutboundFlowTest {
     }
 
     @Nested
-    @DisplayName("재시도 한도")
-    class RetryLimit {
+    @DisplayName("대기와 재시도")
+    class Waiting {
 
         @Test
         @DisplayName("차단된 작업은 다음 주기에 다시 시도한다")
@@ -247,20 +247,26 @@ class OutboundFlowTest {
             assertEquals(1, blockedTask.getRetryCount(), "되돌릴 때마다 센다");
         }
 
+        /**
+         * 한도를 뒀다가 걷어낸 자리. 주기별로 추적해 보니 정상 물량이 한도에 걸려
+         * 조건이 풀린 뒤에도 영영 나가지 않았다. 다시 들어오면 여기서 걸린다.
+         */
         @Test
-        @DisplayName("한도를 넘기면 더 이상 되돌리지 않는다")
-        void stopsAfterLimit() {
-            var limited = new OutboundFlow(layout, orders, tasks, EquipmentGateway.NOOP, 2);
-            limited.accept(order("TO-00001", "CS-9001", "A-01-03-02", "CHUTE-3", EARLY));
-            limited.accept(order("TO-00002", "CS-9002", "A-01-05-01", "CHUTE-3", LATE));
+        @DisplayName("뒤에 온 지시도 기다렸다가 결국 완료된다")
+        void queuedOrderEventuallyShips() {
+            flow.accept(order("TO-00001", "CS-9001", "A-01-03-02", "CHUTE-3", EARLY));
+            flow.accept(order("TO-00002", "CS-9002", "A-01-05-01", "CHUTE-3", LATE));
 
-            for (int cycle = 1; cycle <= 5; cycle++) {
-                limited.dispatch();
+            for (int cycle = 1; cycle <= 12; cycle++) {
+                flow.dispatch().dispatched().forEach(OutboundFlowTest::complete);
             }
 
-            var stuck = tasks.byStatus(TaskStatus.BLOCKED).get(0);
-            assertEquals(2, stuck.getRetryCount(), "한도에서 멈춘다");
-            assertTrue(stuck.getReason().contains("EQP_BUSY"), "마지막 사유가 남는다");
+            assertEquals(6, tasks.byStatus(TaskStatus.COMPLETED).size(),
+                    "여섯 작업 모두 나간다");
+
+            var waited = tasks.find(TaskNo.of("TO-00002", 1)).orElseThrow();
+            assertTrue(waited.getRetryCount() > 0,
+                    "뒤 지시는 실제로 기다렸다: " + waited.getRetryCount());
         }
 
         @Test

@@ -71,30 +71,17 @@ import java.util.Optional;
  */
 public final class OutboundFlow {
 
-    /** 차단·실패 후 다시 시도할 수 있는 횟수. 넘기면 사람이 봐야 한다. */
-    public static final int DEFAULT_MAX_RETRY = 3;
-
     private final WarehouseLayout layout;
     private final OrderRepository orders;
     private final TaskList tasks;
     private final EquipmentGateway gateway;
-    private final int maxRetry;
 
     public OutboundFlow(WarehouseLayout layout, OrderRepository orders,
                         TaskList tasks, EquipmentGateway gateway) {
-        this(layout, orders, tasks, gateway, DEFAULT_MAX_RETRY);
-    }
-
-    public OutboundFlow(WarehouseLayout layout, OrderRepository orders,
-                        TaskList tasks, EquipmentGateway gateway, int maxRetry) {
         this.layout = Objects.requireNonNull(layout, "창고 구성은 필수입니다");
         this.orders = Objects.requireNonNull(orders, "지시 목록은 필수입니다");
         this.tasks = Objects.requireNonNull(tasks, "작업 목록은 필수입니다");
         this.gateway = Objects.requireNonNull(gateway, "설비 게이트웨이는 필수입니다");
-        if (maxRetry < 0) {
-            throw new IllegalArgumentException("재시도 한도는 0 이상이어야 합니다: " + maxRetry);
-        }
-        this.maxRetry = maxRetry;
     }
 
     // ------------------------------------------------------------------
@@ -169,18 +156,31 @@ public final class OutboundFlow {
     }
 
     /**
-     * 차단됐던 작업을 다시 후보로 되돌린다.
+     * 차단됐던 작업을 다시 후보로 되돌린다. 횟수 제한을 두지 않는다.
      *
-     * <p>한도를 넘긴 것은 되돌리지 않는다. 계속 재시도하면 목록에 남아
-     * 매 주기 검사 비용만 들고, 정작 사람이 조치해야 할 건이 묻힌다.
+     * <h4>한도를 뒀다가 걷어낸 이유</h4>
+     * 처음에는 세 번까지만 되돌렸다. 무한히 재시도하면 조치가 필요한 건이 묻힌다고 봤다.
+     * 그런데 지시 두 건을 같은 통로에 넣고 주기별로 추적해 보니 이렇게 됐다.
+     *
+     * <pre>
+     *   주기 4   뒤 지시가 한도 도달 → 되돌리지 않음
+     *   주기 6   P&amp;D가 비어 조건이 풀림
+     *   주기 16  여전히 대기. 영영 나가지 않는다
+     * </pre>
+     *
+     * <p>앞 화물이 지나가기를 기다린 것을 재시도로 세고 있었다.
+     * <b>인터록 대기는 이상이 아니라 정상 대기다.</b> 통로가 붐비면 열 번도 기다린다.
+     * 이상은 조건이 저절로 풀리지 않는 경우인데, 그것은 {@link TaskStatus#FAILED}이고
+     * 여기서 되돌리지 않으므로 이미 구분돼 있다.
+     *
+     * <p>대기가 길어지는 것을 놓치지 않으려면 횟수를 세어 보여주면 된다.
+     * {@link EquipmentTask#getRetryCount()}가 그 값이고, 멈추는 데 쓰지 않는다.
      */
     private void retryBlocked() {
         for (EquipmentTask task : tasks.byStatus(TaskStatus.BLOCKED)) {
-            if (task.getRetryCount() < maxRetry) {
-                task.transitionTo(TaskStatus.CREATED);
-            }
+            task.transitionTo(TaskStatus.CREATED);
         }
-        // FAILED 는 되돌리지 않는다. 설비 이상이나 시한 초과는 조건이 저절로 풀리지 않으므로
+        // FAILED 는 되돌리지 않는다. 설비 이상은 조건이 저절로 풀리지 않으므로
         // 사람이 확인하고 다시 올려야 한다.
     }
 
