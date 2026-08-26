@@ -31,7 +31,7 @@ export function LoadPanel({
     <div className="loads">
       <section>
         <h3>
-          설비 <span className="hint">동시에 몇 건을 붙들고 있나</span>
+          설비 <span className="hint">진행 중 / 정원</span>
         </h3>
         <ul>
           {equipments.map((eq) => (
@@ -48,10 +48,10 @@ export function LoadPanel({
 
       <section>
         <h3>
-          자리 <span className="hint">화물이 몇 개 놓여 있나</span>
+          자리 <span className="hint">점유 / 정원</span>
         </h3>
         {stations.length === 0 ? (
-          <p className="empty small">지시가 들어오면 나타납니다.</p>
+          <p className="empty small">—</p>
         ) : (
           <ul>
             {stations.map((st) => (

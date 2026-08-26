@@ -56,6 +56,11 @@ public final class InMemoryOrderRepository implements OrderRepository {
     }
 
     @Override
+    public void clear() {
+        orders.clear();
+    }
+
+    @Override
     public String toString() {
         return "지시 %d건 (메모리)".formatted(orders.size());
     }

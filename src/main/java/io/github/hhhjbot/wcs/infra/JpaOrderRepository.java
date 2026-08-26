@@ -83,6 +83,11 @@ public class JpaOrderRepository implements OrderRepository {
     }
 
     @Override
+    public void clear() {
+        jpa.deleteAll();
+    }
+
+    @Override
     public String toString() {
         return "지시 보관소 (H2)";
     }

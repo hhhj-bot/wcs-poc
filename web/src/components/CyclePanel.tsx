@@ -1,34 +1,103 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { api, ApiError } from '../api'
 import type { DispatchResult } from '../types'
 
 /**
- * 주기를 손으로 한 번 돌린다.
+ * 운전 모드와 수동 주기.
  *
- * 평소에는 서버의 EquipmentPoller 가 1초마다 같은 것을 부르므로 이 버튼이 없어도 흘러간다.
- * 한 칸씩 보고 싶을 때 wcs.polling.enabled=false 로 두고 이 버튼을 쓴다.
+ * 자동일 때는 서버의 EquipmentPoller 가 1초마다 판단 주기를 돌린다.
+ * 수동으로 바꾸면 그 폴러가 실제로 멈추고, 여기서 누를 때만 한 주기가 돈다.
+ *
+ * 화면에서만 껐다 켜면 거짓말이 된다 — 서버 주기가 계속 지나가므로
+ * 수동으로 한 번 눌러 봐야 이미 다 흘러가 있다. 그래서 토글이 서버 상태를 바꾼다.
  */
-export function CyclePanel({ onDispatched }: { onDispatched: () => void }) {
+export function CyclePanel({ onChanged }: { onChanged: () => void }) {
+  const [auto, setAuto] = useState(true)
   const [result, setResult] = useState<DispatchResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
-  async function run() {
+  // 서버가 실제로 어느 모드인지 한 번 읽어 온다. 새로고침해도 어긋나지 않게.
+  useEffect(() => {
+    api
+      .polling()
+      .then((state) => setAuto(state.enabled))
+      .catch(() => undefined)
+  }, [])
+
+  function fail(e: unknown) {
+    setError(e instanceof ApiError ? e.message : '서버 응답 없음')
+  }
+
+  async function toggle() {
+    setError(null)
+    try {
+      const state = await api.setPolling(!auto)
+      setAuto(state.enabled)
+      setResult(null)
+    } catch (e) {
+      fail(e)
+    }
+  }
+
+  async function runOnce() {
     setError(null)
     try {
       setResult(await api.dispatch())
-      onDispatched()
+      onChanged()
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : '서버에 연결하지 못했습니다')
+      fail(e)
+    }
+  }
+
+  async function reset() {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.reset()
+      setResult(null)
+      onChanged()
+    } catch (e) {
+      fail(e)
+    } finally {
+      setBusy(false)
     }
   }
 
   return (
     <div className="panel">
-      <h3>판단 주기</h3>
-      <button type="button" onClick={run}>
-        한 주기 실행
-      </button>
+      <h3>운전 모드</h3>
+
+      <div className="modes" role="group" aria-label="운전 모드">
+        <button
+          type="button"
+          className={auto ? 'seg on' : 'seg'}
+          aria-pressed={auto}
+          onClick={() => (auto ? undefined : void toggle())}
+        >
+          자동
+        </button>
+        <button
+          type="button"
+          className={auto ? 'seg' : 'seg on'}
+          aria-pressed={!auto}
+          onClick={() => (auto ? void toggle() : undefined)}
+        >
+          수동
+        </button>
+      </div>
+
+      {auto ? (
+        <p className="hint block">주기 1초 · 자동 하달</p>
+      ) : (
+        <>
+          <button type="button" onClick={() => void runOnce()}>
+            한 주기 실행
+          </button>
+          <p className="hint block">자동 정지 · 수동 하달</p>
+        </>
+      )}
 
       {error && <p className="error">{error}</p>}
 
@@ -40,24 +109,30 @@ export function CyclePanel({ onDispatched }: { onDispatched: () => void }) {
             {result.failed > 0 && <span className="badge stop">실패 {result.failed}</span>}
           </p>
 
-          {result.blockedTasks.map((task) => (
-            <p key={task.taskNo} className="why">
-              <span className="mono">{task.taskNo}</span> {task.reason}
-              {task.retryCount > 0 && <span className="dim"> · 재시도 {task.retryCount}</span>}
-            </p>
-          ))}
-          {result.failedTasks.map((task) => (
-            <p key={task.taskNo} className="why stop-text">
-              <span className="mono">{task.taskNo}</span> {task.reason}
-            </p>
-          ))}
+          <div className="why-list">
+            {result.blockedTasks.map((task) => (
+              <p key={task.taskNo} className="why">
+                <span className="mono">{task.taskNo}</span> {task.reason}
+                {task.retryCount > 0 && <span className="dim"> · 대기 {task.retryCount}주기</span>}
+              </p>
+            ))}
+            {result.failedTasks.map((task) => (
+              <p key={task.taskNo} className="why stop-text">
+                <span className="mono">{task.taskNo}</span> {task.reason}
+              </p>
+            ))}
+          </div>
         </div>
       )}
 
-      <p className="hint block">
-        서버 폴러가 켜져 있으면 누르지 않아도 1초마다 같은 일이 일어납니다.
-        여기서 누르는 것은 대기 사유를 그 자리에서 보기 위한 것입니다.
-      </p>
+      <div className="reset-row">
+        <button type="button" className="ghost" onClick={() => void reset()} disabled={busy}>
+          {busy ? '처리 중' : '처음 상태로'}
+        </button>
+        <p className="hint">
+          작업·지시 삭제 후 시연 지시 재접수. 슈트 정원 초과 시 복구 수단
+        </p>
+      </div>
     </div>
   )
 }

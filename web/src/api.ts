@@ -2,7 +2,9 @@ import type {
   AcceptResult,
   DispatchResult,
   EquipmentLoad,
+  LoadedSample,
   OrderRequest,
+  PollingState,
   StationLoad,
   Task,
 } from './types'
@@ -58,4 +60,19 @@ export const api = {
     }),
 
   dispatch: () => request<DispatchResult>('/dispatch', { method: 'POST' }),
+
+  polling: () => request<PollingState>('/polling'),
+
+  /** 서버 폴러를 실제로 켜고 끈다. 화면에서만 끄면 자동 주기가 계속 지나가 버린다. */
+  setPolling: (enabled: boolean) =>
+    request<PollingState>('/polling', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    }),
+
+  /** 시연 지시 한 묶음. 누를 때마다 번호가 이어진다. */
+  loadSample: () => request<LoadedSample>('/demo', { method: 'POST' }),
+
+  reset: () => request<PollingState>('/reset', { method: 'POST' }),
 }

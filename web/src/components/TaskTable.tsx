@@ -25,7 +25,7 @@ const LABEL: Record<TaskStatus, string> = {
 
 export function TaskTable({ tasks }: { tasks: Task[] }) {
   if (tasks.length === 0) {
-    return <p className="empty">아직 지시가 없습니다. 왼쪽에서 하나 넣어 보세요.</p>
+    return <p className="empty">지시 없음</p>
   }
 
   return (

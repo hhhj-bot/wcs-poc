@@ -25,6 +25,7 @@ export function OrderForm({ onAccepted }: { onAccepted: () => void }) {
   })
   const [error, setError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [added, setAdded] = useState<string[] | null>(null)
 
   const set = (key: keyof OrderRequest) => (event: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }))
@@ -39,7 +40,27 @@ export function OrderForm({ onAccepted }: { onAccepted: () => void }) {
       setForm((prev) => ({ ...prev, orderNo: nextOrderNo() }))
       onAccepted()
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : '서버에 연결하지 못했습니다')
+      setError(e instanceof ApiError ? e.message : '서버 응답 없음')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  /**
+   * 미리 짜 둔 세 건을 한 번에 넣는다.
+   *
+   * 한 묶음이 우선순위·병렬·병목을 동시에 드러내도록 구성돼 있다.
+   * 누를 때마다 번호가 이어지므로 여러 번 눌러 대기열을 쌓아 볼 수 있다.
+   */
+  async function loadSample() {
+    setSending(true)
+    setError(null)
+    try {
+      const result = await api.loadSample()
+      setAdded(result.orderNos)
+      onAccepted()
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : '서버 응답 없음')
     } finally {
       setSending(false)
     }
@@ -71,15 +92,30 @@ export function OrderForm({ onAccepted }: { onAccepted: () => void }) {
       </label>
 
       <button type="submit" disabled={sending}>
-        {sending ? '접수 중…' : '지시 접수'}
+        {sending ? '전송 중' : '지시 접수'}
       </button>
 
       {error && <p className="error">{error}</p>}
 
       <p className="hint block">
-        같은 통로(A-01)로 두 건을 연달아 넣으면 크레인 정원이 1이라 두 번째가 대기합니다.
-        A-02로 넣으면 크레인이 달라 함께 나갑니다.
+        A-01 연속 2건 → 크레인 정원 1, 두 번째 대기 · A-02 → 담당 크레인 달라 병렬
       </p>
+
+      <div className="reset-row">
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => void loadSample()}
+          disabled={sending}
+        >
+          시연 3건 추가
+        </button>
+        <p className="hint">우선순위 · 병렬 · 병목 동시 확인. 누를수록 대기열 증가</p>
+      </div>
+
+      {added && (
+        <p className="hint block mono-hint">접수 {added.join(' · ')}</p>
+      )}
     </form>
   )
 }

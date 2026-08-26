@@ -1,11 +1,11 @@
 package io.github.hhhjbot.wcs.config;
 
+import io.github.hhhjbot.wcs.app.DemoScenario;
 import io.github.hhhjbot.wcs.domain.Equipment;
 import io.github.hhhjbot.wcs.domain.EquipmentGateway;
 import io.github.hhhjbot.wcs.domain.LocationCode;
 import io.github.hhhjbot.wcs.domain.OrderRepository;
 import io.github.hhhjbot.wcs.domain.OutboundFlow;
-import io.github.hhhjbot.wcs.domain.OutboundOrder;
 import io.github.hhhjbot.wcs.domain.TaskList;
 import io.github.hhhjbot.wcs.domain.WarehouseLayout;
 import io.github.hhhjbot.wcs.infra.SimulatedEquipmentGateway;
@@ -15,9 +15,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -103,27 +100,16 @@ public class WarehouseConfig {
     }
 
     /**
-     * 뜰 때 샘플 지시 두 건을 받아 둔다.
+     * 뜰 때 시연용 지시를 받아 둔다. 지시 내용은 {@link DemoScenario}가 갖는다.
      *
      * <p>하달은 하지 않는다. {@link io.github.hhhjbot.wcs.app.EquipmentPoller}가
      * 주기마다 알아서 가져간다.
      *
-     * <p>폴러를 끄고 손으로 한 칸씩 보고 싶으면 {@code wcs.polling.enabled=false} 로 두고
-     * {@code POST /api/dispatch} 를 누르면 된다.
+     * <p>수동으로 한 칸씩 보고 싶으면 화면에서 자동을 끄거나
+     * {@code wcs.polling.enabled=false} 로 두고 {@code POST /api/dispatch} 를 누르면 된다.
      */
     @Bean
-    public CommandLineRunner sampleData(OutboundFlow flow) {
-        return args -> {
-            LocalDateTime cutoff = LocalDateTime.of(LocalDate.now(), LocalTime.of(16, 0));
-
-            flow.accept(new OutboundOrder(
-                    "TO-00001", "CS-9001",
-                    LocationCode.of("A-01-03-02"), LocationCode.of("CHUTE-3"), cutoff));
-
-            flow.accept(new OutboundOrder(
-                    "TO-00002", "CS-9002",
-                    LocationCode.of("A-01-05-01"), LocationCode.of("CHUTE-3"),
-                    cutoff.plusHours(1)));
-        };
+    public CommandLineRunner sampleData(DemoScenario demo) {
+        return args -> demo.load();
     }
 }

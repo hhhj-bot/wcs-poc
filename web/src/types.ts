@@ -70,3 +70,14 @@ export interface DispatchResult {
   blockedTasks: { taskNo: string; equipmentCode: string; reason: string; retryCount: number }[]
   failedTasks: { taskNo: string; equipmentCode: string; reason: string; retryCount: number }[]
 }
+
+/** GET·POST /api/polling — 자동 주기가 도는 중인지 */
+export interface PollingState {
+  enabled: boolean
+}
+
+/** POST /api/demo — 시연 지시 한 묶음 */
+export interface LoadedSample {
+  added: number
+  orderNos: string[]
+}

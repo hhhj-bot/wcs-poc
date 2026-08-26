@@ -57,14 +57,14 @@ export default function App() {
       <div className="layout">
         <aside>
           <OrderForm onAccepted={refresh} />
-          <CyclePanel onDispatched={refresh} />
+          <CyclePanel onChanged={refresh} />
         </aside>
 
         <main>
           <LoadPanel equipments={equipments} stations={stations} />
           <div className="panel">
             <h3>
-              작업 <span className="hint">1초마다 다시 읽습니다</span>
+              작업 <span className="hint">1초 갱신</span>
             </h3>
             <TaskTable tasks={tasks} />
           </div>
