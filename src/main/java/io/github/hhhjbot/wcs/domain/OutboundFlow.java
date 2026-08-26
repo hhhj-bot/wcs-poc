@@ -77,16 +77,20 @@ public final class OutboundFlow {
     private final WarehouseLayout layout;
     private final OrderRepository orders;
     private final TaskList tasks;
+    private final EquipmentGateway gateway;
     private final int maxRetry;
 
-    public OutboundFlow(WarehouseLayout layout, OrderRepository orders, TaskList tasks) {
-        this(layout, orders, tasks, DEFAULT_MAX_RETRY);
+    public OutboundFlow(WarehouseLayout layout, OrderRepository orders,
+                        TaskList tasks, EquipmentGateway gateway) {
+        this(layout, orders, tasks, gateway, DEFAULT_MAX_RETRY);
     }
 
-    public OutboundFlow(WarehouseLayout layout, OrderRepository orders, TaskList tasks, int maxRetry) {
+    public OutboundFlow(WarehouseLayout layout, OrderRepository orders,
+                        TaskList tasks, EquipmentGateway gateway, int maxRetry) {
         this.layout = Objects.requireNonNull(layout, "창고 구성은 필수입니다");
         this.orders = Objects.requireNonNull(orders, "지시 목록은 필수입니다");
         this.tasks = Objects.requireNonNull(tasks, "작업 목록은 필수입니다");
+        this.gateway = Objects.requireNonNull(gateway, "설비 게이트웨이는 필수입니다");
         if (maxRetry < 0) {
             throw new IllegalArgumentException("재시도 한도는 0 이상이어야 합니다: " + maxRetry);
         }
@@ -139,19 +143,29 @@ public final class OutboundFlow {
 
         var dispatched = new ArrayList<EquipmentTask>();
         var blocked = new ArrayList<EquipmentTask>();
+        var failed = new ArrayList<EquipmentTask>();
 
         for (EquipmentTask task : candidates()) {
             Optional<String> reason = blockReason(task);
             if (reason.isPresent()) {
                 task.block(reason.get());
                 blocked.add(task);
-            } else {
-                task.transitionTo(TaskStatus.QUEUED);
-                task.transitionTo(TaskStatus.SENT);   // 설비에 CMD 기록 후 트리거 상승
+                continue;
+            }
+
+            task.transitionTo(TaskStatus.QUEUED);
+            try {
+                gateway.send(task);                  // CMD 기록 후 트리거 상승
+                task.transitionTo(TaskStatus.SENT);
                 dispatched.add(task);
+            } catch (RuntimeException e) {
+                // 명령이 안 나갔는데 나간 줄 아는 것이 가장 나쁘다. 여기서 끊는다.
+                task.fail("SEND_FAILED — " + e.getMessage());
+                failed.add(task);
             }
         }
-        return new DispatchResult(List.copyOf(dispatched), List.copyOf(blocked));
+        return new DispatchResult(
+                List.copyOf(dispatched), List.copyOf(blocked), List.copyOf(failed));
     }
 
     /**
@@ -248,15 +262,83 @@ public final class OutboundFlow {
      * @param dispatched 하달된 작업
      * @param blocked    조건이 갖춰지지 않아 대기시킨 작업
      */
-    public record DispatchResult(List<EquipmentTask> dispatched, List<EquipmentTask> blocked) {
+    public record DispatchResult(List<EquipmentTask> dispatched,
+                                 List<EquipmentTask> blocked,
+                                 List<EquipmentTask> failed) {
+
+        public DispatchResult(List<EquipmentTask> dispatched, List<EquipmentTask> blocked) {
+            this(dispatched, blocked, List.of());
+        }
 
         public int dispatchedCount() { return dispatched.size(); }
 
         public int blockedCount() { return blocked.size(); }
 
+        public int failedCount() { return failed.size(); }
+
         @Override
         public String toString() {
-            return "하달 %d건 · 대기 %d건".formatted(dispatched.size(), blocked.size());
+            return failed.isEmpty()
+                    ? "하달 %d건 · 대기 %d건".formatted(dispatched.size(), blocked.size())
+                    : "하달 %d건 · 대기 %d건 · 실패 %d건"
+                            .formatted(dispatched.size(), blocked.size(), failed.size());
+        }
+    }
+
+    /**
+     * 설비 응답을 읽어 작업 상태를 옮긴다. 하달의 반대 방향이다.
+     *
+     * <p>{@link #dispatch()}가 WCS에서 설비로 나가는 길이라면 이쪽은 돌아오는 길이다.
+     * 폴러가 매 주기 둘을 차례로 부른다.
+     *
+     * <p>완료·이상으로 끝난 작업은 {@link EquipmentGateway#release(TaskNo)}로 트리거를 내린다.
+     * 이걸 빠뜨리면 설비 쪽 명령 슬롯이 물린 채 남는다.
+     *
+     * @return 이번 주기에 상태가 바뀐 작업
+     */
+    public synchronized List<EquipmentTask> collect() {
+        var changed = new ArrayList<EquipmentTask>();
+
+        for (EquipmentTask task : tasks.inFlight()) {
+            Optional<EquipmentSignal> signal = gateway.read(task.getTaskNo());
+            if (signal.isEmpty()) {
+                continue;   // 아직 응답이 없다
+            }
+
+            TaskStatus target = signal.get().toTaskStatus();
+            if (target == task.getStatus()) {
+                continue;   // 같은 신호를 다시 읽었다
+            }
+
+            if (target == TaskStatus.FAILED) {
+                task.fail("EQP_FAULT — %s 이상".formatted(task.getEquipmentCode()));
+            } else {
+                advanceTo(task, target);
+            }
+            changed.add(task);
+
+            if (task.getStatus() == TaskStatus.COMPLETED || task.getStatus() == TaskStatus.FAILED) {
+                gateway.release(task.getTaskNo());
+            }
+        }
+        return List.copyOf(changed);
+    }
+
+    /**
+     * 목표 상태까지 한 단계씩 옮긴다.
+     *
+     * <p>폴링 주기가 설비 동작보다 길면 중간 신호를 놓친다. {@code SENT}인 작업에서
+     * 곧장 {@code DONE}을 읽는 식이다. 그렇다고 건너뛰어 기록하면 상태 기계를 두는 의미가 없으므로,
+     * 놓친 단계를 채워 넣으며 나아간다. 설비가 건너뛴 것이 아니라 우리가 못 본 것이기 때문이다.
+     */
+    private void advanceTo(EquipmentTask task, TaskStatus target) {
+        for (TaskStatus step : List.of(TaskStatus.ACKED, TaskStatus.EXECUTING, TaskStatus.COMPLETED)) {
+            if (task.getStatus().canTransitionTo(step)) {
+                task.transitionTo(step);
+            }
+            if (task.getStatus() == target) {
+                return;
+            }
         }
     }
 }

@@ -39,7 +39,7 @@ class OutboundFlowTest {
                 LocationCode.of("IND-01"), "CV-01", "SRT-01");
         orders = new InMemoryOrderRepository();
         tasks = new TaskList();
-        flow = new OutboundFlow(layout, orders, tasks);
+        flow = new OutboundFlow(layout, orders, tasks, EquipmentGateway.NOOP);
     }
 
     private OutboundOrder order(String orderNo, String loadId, String source,
@@ -250,7 +250,7 @@ class OutboundFlowTest {
         @Test
         @DisplayName("한도를 넘기면 더 이상 되돌리지 않는다")
         void stopsAfterLimit() {
-            var limited = new OutboundFlow(layout, orders, tasks, 2);
+            var limited = new OutboundFlow(layout, orders, tasks, EquipmentGateway.NOOP, 2);
             limited.accept(order("TO-00001", "CS-9001", "A-01-03-02", "CHUTE-3", EARLY));
             limited.accept(order("TO-00002", "CS-9002", "A-01-05-01", "CHUTE-3", LATE));
 

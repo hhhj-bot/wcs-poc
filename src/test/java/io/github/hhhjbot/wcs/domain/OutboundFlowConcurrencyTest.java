@@ -95,7 +95,7 @@ class OutboundFlowConcurrencyTest {
 
         for (int round = 0; round < ROUNDS; round++) {
             var tasks = new TaskList();
-            var flow = new OutboundFlow(layout(), new InMemoryOrderRepository(), tasks);
+            var flow = new OutboundFlow(layout(), new InMemoryOrderRepository(), tasks, EquipmentGateway.NOOP);
 
             // 같은 통로에서 나가는 두 건. 담당 크레인이 SC-A01 로 같다.
             flow.accept(order("TO-00001", "CS-9001", "A-01-03-02"));

@@ -1,16 +1,19 @@
 package io.github.hhhjbot.wcs.config;
 
 import io.github.hhhjbot.wcs.domain.Equipment;
+import io.github.hhhjbot.wcs.domain.EquipmentGateway;
 import io.github.hhhjbot.wcs.domain.LocationCode;
 import io.github.hhhjbot.wcs.domain.OrderRepository;
 import io.github.hhhjbot.wcs.domain.OutboundFlow;
 import io.github.hhhjbot.wcs.domain.OutboundOrder;
 import io.github.hhhjbot.wcs.domain.TaskList;
 import io.github.hhhjbot.wcs.domain.WarehouseLayout;
+import io.github.hhhjbot.wcs.infra.SimulatedEquipmentGateway;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -28,6 +31,7 @@ import java.util.List;
  * 지금은 어디서 오는지만 분리해 두었다.
  */
 @Configuration
+@EnableScheduling   // EquipmentPoller 의 @Scheduled 를 켠다
 public class WarehouseConfig {
 
     /**
@@ -69,6 +73,20 @@ public class WarehouseConfig {
     // 여기에 또 만들면 OrderRepository 타입 빈이 둘이 되어 기동할 때 죽는다.
 
     /**
+     * 설비와 주고받는 통로. 지금은 설비가 없어 흉내 내는 구현이 꽂힌다.
+     *
+     * <p>실물 PLC를 붙일 때 이 메서드 하나만 바꾼다. {@code OutboundFlow}도
+     * {@code EquipmentPoller}도 무엇이 꽂혔는지 모른다.
+     *
+     * <p>{@code readsToDone = 3} 은 한 구간이 세 주기(기본 1초 × 3)에 걸쳐
+     * ACK → RUNNING → DONE 으로 나아간다는 뜻이다. 화면에서 눈으로 따라갈 수 있는 속도다.
+     */
+    @Bean
+    public EquipmentGateway equipmentGateway() {
+        return new SimulatedEquipmentGateway(3, null);
+    }
+
+    /**
      * 지시를 작업으로 펼치고 하달을 판단한다.
      *
      * <p>상태를 갖지 않으므로 싱글턴 빈 하나를 모두가 나눠 써도 안전하다.
@@ -79,15 +97,19 @@ public class WarehouseConfig {
      * {@code InMemoryOrderRepository}가 들어간다.
      */
     @Bean
-    public OutboundFlow outboundFlow(WarehouseLayout layout, OrderRepository orders, TaskList tasks) {
-        return new OutboundFlow(layout, orders, tasks);
+    public OutboundFlow outboundFlow(WarehouseLayout layout, OrderRepository orders,
+                                     TaskList tasks, EquipmentGateway gateway) {
+        return new OutboundFlow(layout, orders, tasks, gateway);
     }
 
     /**
      * 뜰 때 샘플 지시 두 건을 받아 둔다.
      *
-     * <p>하달은 하지 않는다. {@code POST /api/dispatch} 를 눌러야 한 주기가 돈다.
-     * 화면에서 한 단계씩 확인하기 위한 것이다.
+     * <p>하달은 하지 않는다. {@link io.github.hhhjbot.wcs.app.EquipmentPoller}가
+     * 주기마다 알아서 가져간다.
+     *
+     * <p>폴러를 끄고 손으로 한 칸씩 보고 싶으면 {@code wcs.polling.enabled=false} 로 두고
+     * {@code POST /api/dispatch} 를 누르면 된다.
      */
     @Bean
     public CommandLineRunner sampleData(OutboundFlow flow) {

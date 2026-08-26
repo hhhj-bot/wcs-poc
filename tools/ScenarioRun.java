@@ -2,6 +2,7 @@ import io.github.hhhjbot.wcs.domain.Equipment;
 import io.github.hhhjbot.wcs.domain.EquipmentTask;
 import io.github.hhhjbot.wcs.domain.LocationCode;
 import io.github.hhhjbot.wcs.domain.InMemoryOrderRepository;
+import io.github.hhhjbot.wcs.infra.SimulatedEquipmentGateway;
 import io.github.hhhjbot.wcs.domain.OutboundFlow;
 import io.github.hhhjbot.wcs.domain.OutboundOrder;
 import io.github.hhhjbot.wcs.domain.Route;
@@ -30,6 +31,7 @@ public class ScenarioRun {
 
     private static WarehouseLayout layout;
     private static TaskList tasks;
+    private static SimulatedEquipmentGateway gateway;
     private static OutboundFlow flow;
 
     public static void main(String[] args) {
@@ -67,7 +69,8 @@ public class ScenarioRun {
                         new Equipment("SRT-01", 24)),  // 캐리어 24개
                 LocationCode.of("IND-01"), "CV-01", "SRT-01");
         tasks = new TaskList();
-        flow = new OutboundFlow(layout, new InMemoryOrderRepository(), tasks);
+        gateway = new SimulatedEquipmentGateway(1, null);   // 한 주기에 완료되는 설비
+        flow = new OutboundFlow(layout, new InMemoryOrderRepository(), tasks, gateway);
     }
 
     // ------------------------------------------------------------------
@@ -94,11 +97,10 @@ public class ScenarioRun {
                     task.getTaskNo(), task.getEquipmentCode(), task.getReason());
         }
 
-        // 설비 응답. 실제로는 게이트웨이가 STS 태그를 읽어 이 전이를 일으킨다
-        for (EquipmentTask task : result.dispatched()) {
-            task.transitionTo(TaskStatus.ACKED);
-            task.transitionTo(TaskStatus.EXECUTING);
-            task.transitionTo(TaskStatus.COMPLETED);
+        // 설비 응답을 읽는다. 폴러가 하는 일과 같다.
+        for (EquipmentTask task : flow.collect()) {
+            System.out.printf("  응답  %-12s %-7s %s%n",
+                    task.getTaskNo(), task.getEquipmentCode(), task.getStatus());
         }
 
         boolean remaining = tasks.all().stream()

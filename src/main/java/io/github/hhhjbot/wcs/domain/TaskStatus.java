@@ -16,7 +16,7 @@ import java.util.Set;
  * <pre>
  *   CREATED ──▶ QUEUED ──▶ SENT ──▶ ACKED ──▶ EXECUTING ──▶ COMPLETED
  *      │           │         │         │           │
- *      ▼           ▼         └─────────┴───────────┴──▶ FAILED
+ *      ▼           └─────────┴─────────┴───────────┴──▶ FAILED
  *   BLOCKED ◀──────┘                                       │
  *      │                                                   │
  *      └──────────────── 재시도 ─────────────────────────────┘
@@ -29,7 +29,12 @@ public enum TaskStatus {
     /** 상위 시스템으로부터 지시를 수신한 상태. 아직 설비에 전달하지 않았다. */
     CREATED,
 
-    /** 설비별 대기열에 등록된 상태. 설비가 가용해지면 하달한다. */
+    /**
+     * 설비별 대기열에 등록된 상태. 설비가 가용해지면 하달한다.
+     *
+     * <p>여기서 {@link #FAILED}로 갈 수 있다. 명령을 내보내다 통신이 끊기면
+     * 아직 설비에 도달하지 않았지만 하달은 실패한 것이기 때문이다.
+     */
     QUEUED,
 
     /** PLC 명령 태그에 값을 기록하고 트리거를 올린 상태. 수신확인 대기. */
@@ -59,7 +64,7 @@ public enum TaskStatus {
     public Set<TaskStatus> allowedNext() {
         return switch (this) {
             case CREATED   -> EnumSet.of(QUEUED, BLOCKED);
-            case QUEUED    -> EnumSet.of(SENT, BLOCKED);
+            case QUEUED    -> EnumSet.of(SENT, BLOCKED, FAILED);   // 전송 자체가 실패할 수 있다
             case SENT      -> EnumSet.of(ACKED, FAILED);
             case ACKED     -> EnumSet.of(EXECUTING, FAILED);
             case EXECUTING -> EnumSet.of(COMPLETED, FAILED);

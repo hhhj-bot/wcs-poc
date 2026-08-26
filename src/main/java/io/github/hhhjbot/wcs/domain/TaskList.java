@@ -141,6 +141,18 @@ public final class TaskList {
     }
 
     /**
+     * 하달되어 아직 끝나지 않은 작업 전체.
+     *
+     * <p>설비 응답을 읽어야 할 대상이다. 폴러가 매 주기 이 목록만 훑는다.
+     */
+    public List<EquipmentTask> inFlight() {
+        return tasks.stream()
+                .filter(EquipmentTask::isInFlight)
+                .sorted(Comparator.comparing(EquipmentTask::getTaskNo))
+                .toList();
+    }
+
+    /**
      * 이 자리에 지금 화물이 있거나 곧 도착하는 건수.
      *
      * <p>설비 정원이 "설비가 붙들고 있는 수"라면, 이것은 "자리에 놓여 있는 수"다.
